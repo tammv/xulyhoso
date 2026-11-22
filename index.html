@@ -1,0 +1,2677 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hệ thống Theo dõi Hồ sơ - Chứng từ Trình ký</title>
+
+  <!-- Google Fonts: Be Vietnam Pro & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- SheetJS (xlsx): Đọc & Xuất file Excel (.xlsx) -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Be Vietnam Pro"', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Tùy chọn nạp cấu hình Firebase từ file ngoài (nếu chạy local) -->
+  <script src="./firebase-config.js" onerror="/* file không bắt buộc */"></script>
+</head>
+<body class="bg-slate-100/80 text-slate-800 font-sans antialiased selection:bg-emerald-100 selection:text-emerald-900 min-h-screen flex flex-col">
+
+  <!-- ==================== 1. HEADER & THANH CÔNG CỤ ==================== -->
+  <header class="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-2xs">
+    <div class="max-w-[1680px] mx-auto px-3 sm:px-5 py-2.5">
+      <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-2.5">
+        <!-- Nhận diện hệ thống & Trạng thái đồng bộ -->
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-emerald-700 text-white flex items-center justify-center shadow-xs shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <h1 class="text-sm sm:text-base font-bold text-slate-900 tracking-tight">
+                  THEO DÕI HỒ SƠ - CHỨNG TỪ TRÌNH KÝ
+                </h1>
+                <span
+                  id="syncStatusBadge"
+                  class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200"
+                >
+                  <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>Đang khởi tạo...
+                </span>
+              </div>
+              <div class="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
+                <span id="todayDateLabel" class="font-medium text-slate-600">Hôm nay</span>
+                <span>•</span>
+                <span>Sổ số hóa luân chuyển chứng từ & hợp đồng</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Nhóm nút hành động trên Header -->
+        <div class="flex flex-wrap items-center gap-2">
+          <button type="button" onclick="downloadTemplateXLSX()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 transition" title="Tải file Excel mẫu chuẩn 9 cột để nhập liệu">
+            <svg class="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span>File mẫu (.xlsx)</span>
+          </button>
+
+          <button type="button" onclick="openImportModal()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 transition" title="Tải dữ liệu từ file Excel lên hệ thống">
+            <svg class="w-3.5 h-3.5 text-emerald-700" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            <span>Nhập Excel</span>
+          </button>
+
+          <button type="button" onclick="handleExportExcelClick()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-2xs transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            <span>Xuất Excel</span>
+          </button>
+
+          <button type="button" onclick="openRecipientManagerModal()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-purple-800 bg-purple-50 hover:bg-purple-100 border border-purple-200 transition" title="Thêm hoặc quản lý các phòng ban / nơi nhận hồ sơ">
+            <svg class="w-3.5 h-3.5 text-purple-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            <span>+ Nơi nhận</span>
+          </button>
+
+          <button type="button" onclick="openFormModal()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-2xs transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            <span>+ Thêm hồ sơ</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================== 2. NỘI DUNG CHÍNH (TABLE-FIRST LEDGER) ==================== -->
+  <main class="max-w-[1680px] mx-auto px-3 sm:px-5 py-3.5 space-y-3 flex-1 w-full">
+
+    <!-- THANH KPI TÓM TẮT SIÊU GỌN (4 THẺ NGANG) -->
+    <section aria-label="Tóm tắt số liệu" class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+      <button type="button" id="kpi-all" onclick="setStatusFilter('all')" class="kpi-card bg-white rounded-xl px-3.5 py-2.5 border border-slate-200 hover:border-slate-300 flex items-center justify-between text-left transition shadow-2xs">
+        <div>
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">Tổng hồ sơ</span>
+          <span id="kpiTotalCount" class="text-xl font-bold text-slate-900 tabular-nums">0</span>
+        </div>
+        <span class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-bold">ALL</span>
+      </button>
+
+      <button type="button" id="kpi-in_progress" onclick="setStatusFilter('in_progress')" class="kpi-card bg-white rounded-xl px-3.5 py-2.5 border border-slate-200 hover:border-blue-300 flex items-center justify-between text-left transition shadow-2xs">
+        <div>
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-blue-600 block">Đang trình ký</span>
+          <span id="kpiInProgressCount" class="text-xl font-bold text-slate-900 tabular-nums">0</span>
+        </div>
+        <span class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </span>
+      </button>
+
+      <button type="button" id="kpi-urgent" onclick="setStatusFilter('urgent')" class="kpi-card bg-white rounded-xl px-3.5 py-2.5 border border-slate-200 hover:border-rose-300 flex items-center justify-between text-left transition shadow-2xs">
+        <div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-rose-600">Sắp / Quá hạn</span>
+            <span id="kpiUrgentDot" class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+          </div>
+          <div class="flex items-baseline gap-1.5 mt-0.5">
+            <span id="kpiUrgentCount" class="text-xl font-bold text-rose-600 tabular-nums">0</span>
+            <span class="text-[11px] text-slate-500 font-medium">(<span id="kpiOverdueCount" class="text-rose-600 font-bold">0</span> trễ)</span>
+          </div>
+        </div>
+        <span class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </span>
+      </button>
+
+      <button type="button" id="kpi-returned" onclick="setStatusFilter('returned')" class="kpi-card bg-white rounded-xl px-3.5 py-2.5 border border-slate-200 hover:border-emerald-300 flex items-center justify-between text-left transition shadow-2xs">
+        <div>
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-emerald-700 block">Đã trả lại</span>
+          <span id="kpiReturnedCount" class="text-xl font-bold text-slate-900 tabular-nums">0</span>
+        </div>
+        <span class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </span>
+      </button>
+    </section>
+
+    <!-- THANH TÌM KIẾM & BỘ LỌC TOÀN DIỆN -->
+    <section aria-label="Tìm kiếm và điều khiển bảng" class="bg-white rounded-xl border border-slate-200 p-3 space-y-2.5 shadow-2xs">
+      <!-- Hàng 1: Ô tìm kiếm tức thì + Mật độ dòng -->
+      <div class="flex flex-col lg:flex-row lg:items-center gap-2.5">
+        <div class="relative flex-1">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <input
+            type="text"
+            id="searchInput"
+            oninput="handleSearchInput(this.value)"
+            placeholder="Tìm kiếm tức thì theo MHS, Tên hồ sơ, Nhà cung cấp, Người gửi, Nơi nhận, Lưu ý (gõ có dấu hoặc không dấu)..."
+            class="w-full pl-9 pr-8 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition"
+          />
+          <button
+            type="button"
+            id="clearSearchBtn"
+            onclick="clearSearch()"
+            class="hidden absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-700"
+            title="Xóa từ khóa"
+          >
+            ✕
+          </button>
+        </div>
+
+        <!-- Mật độ dòng -->
+        <div class="flex flex-wrap items-center gap-2 shrink-0">
+          <div class="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200" role="group" aria-label="Mật độ dòng">
+            <button
+              type="button"
+              id="densityCompactBtn"
+              onclick="setRowDensity('compact')"
+              class="px-2.5 py-1.5 rounded-md text-xs font-semibold transition bg-white text-slate-800 shadow-2xs"
+              title="Hiển thị nhiều dòng gọn gàng như Excel"
+            >
+              Gọn
+            </button>
+            <button
+              type="button"
+              id="densityComfortableBtn"
+              onclick="setRowDensity('comfortable')"
+              class="px-2.5 py-1.5 rounded-md text-xs font-medium transition text-slate-600 hover:text-slate-900"
+              title="Giãn khoảng cách dòng thoáng hơn"
+            >
+              Thoáng
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hàng 2: Nút lọc nhanh 1-click kèm số đếm + Dropdown lọc & sắp xếp -->
+      <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-2 pt-2 border-t border-slate-100">
+        <div id="statusPillsContainer" class="flex items-center gap-1.5 overflow-x-auto pb-0.5"></div>
+
+        <div class="flex flex-wrap items-center gap-1.5">
+          <select
+            id="stageSelect"
+            onchange="setStageFilter(this.value)"
+            aria-label="Lọc nơi/người nhận"
+            class="px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:border-emerald-600"
+          >
+            <option value="all">Nơi/người nhận: Tất cả</option>
+          </select>
+
+          <select
+            id="senderSelect"
+            onchange="setSenderFilter(this.value)"
+            aria-label="Lọc người gửi"
+            class="px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:border-emerald-600"
+          >
+            <option value="all">Người gửi: Tất cả</option>
+          </select>
+
+          <select
+            id="sortSelect"
+            onchange="setSortBy(this.value)"
+            aria-label="Sắp xếp"
+            class="px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:border-emerald-600"
+          >
+            <option value="mhs_desc">Sắp xếp: MHS mới nhất</option>
+            <option value="sent_desc">Ngày gửi: Mới → Cũ</option>
+            <option value="sent_asc">Ngày gửi: Cũ → Mới</option>
+            <option value="due_asc">Ngày hạn: Gấp nhất trước</option>
+          </select>
+
+          <button
+            type="button"
+            id="resetFiltersBtn"
+            onclick="resetAllFilters()"
+            disabled
+            class="px-2.5 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition disabled:opacity-40 disabled:pointer-events-none"
+          >
+            Đặt lại
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 3. BẢNG DỮ LIỆU CHÍNH (SỔ THEO DÕI CHUẨN) ==================== -->
+    <section aria-label="Bảng theo dõi chứng từ" class="bg-white rounded-xl border border-slate-300 shadow-xs overflow-hidden">
+      <div class="px-3.5 py-2 bg-emerald-800 text-white flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div class="flex items-center gap-2 font-semibold">
+          <span>SỔ THEO DÕI HỒ SƠ - CHỨNG TỪ TRÌNH KÝ</span>
+          <span class="px-2 py-0.5 rounded bg-emerald-900/80 text-emerald-100 text-[11px] font-normal">
+            Bảng chuẩn số hóa (Bảo mật theo mã hồ sơ)
+          </span>
+        </div>
+        <div class="flex items-center gap-3 text-emerald-100">
+          <span id="tableCountSummary">Hiển thị 0 / 0 hồ sơ</span>
+          <button type="button" onclick="toggleQuickAddRow()" id="toggleQuickAddBtn" class="underline hover:text-white font-medium">
+            Ẩn dòng thêm nhanh
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto max-h-[calc(100vh-285px)] min-h-[380px]">
+        <table id="ledgerTable" class="w-full border-collapse text-left">
+          <thead id="ledgerTableHead" class="sticky top-0 z-20 select-none shadow-2xs"></thead>
+          <tbody id="quickAddTbody" class="bg-amber-50/70 border-b-2 border-emerald-600/40"></tbody>
+          <tbody id="ledgerTableBody" class="divide-y divide-slate-200 bg-white"></tbody>
+        </table>
+      </div>
+
+      <div id="emptyStateBox" class="hidden py-12 px-4 text-center bg-white border-t border-slate-200">
+        <p class="text-sm font-semibold text-slate-800">Không tìm thấy hồ sơ nào khớp với điều kiện lọc</p>
+        <p class="text-xs text-slate-500 mt-1">Bạn có thể nhập trực tiếp hồ sơ mới ở dòng màu vàng phía trên hoặc đặt lại bộ lọc.</p>
+        <button type="button" onclick="resetAllFilters()" class="mt-3 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition">
+          Hiển thị toàn bộ hồ sơ
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== MODAL 1: FORM THÊM MỚI / CHỈNH SỬA CHI TIẾT ==================== -->
+  <div id="formModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-2xl overflow-hidden">
+      <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div>
+          <h2 id="formModalTitle" class="text-base font-bold text-slate-900">Thêm hồ sơ trình ký mới</h2>
+          <p class="text-xs text-slate-500">Đầy đủ các trường thông tin & bảo mật phân quyền sửa đổi</p>
+        </div>
+        <button type="button" onclick="closeFormModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/70">✕</button>
+      </div>
+
+      <form id="documentForm" onsubmit="handleFormSubmit(event)" class="p-5 space-y-3.5">
+        <input type="hidden" id="editDocId" />
+
+        <!-- Phần cài đặt Mã cấp quyền chỉnh sửa -->
+        <div class="p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl space-y-1.5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <label for="fieldEditCode" class="block text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                <span>🔒 Mã cấp quyền chỉnh sửa hồ sơ</span>
+                <span class="text-rose-500">*</span>
+              </label>
+              <p class="text-[11px] text-amber-800/80">Chỉ người nhập đúng mã này mới được phép sửa hoặc xóa hồ sơ này.</p>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <input
+                type="text"
+                id="fieldEditCode"
+                required
+                placeholder="VD: 1234"
+                class="w-32 px-2.5 py-1.5 text-xs font-mono font-bold text-center bg-white border border-amber-300 rounded-lg focus:outline-none focus:border-amber-600"
+              />
+              <button
+                type="button"
+                onclick="generateRandomCodeForFormField()"
+                class="px-2.5 py-1.5 text-xs font-semibold text-amber-900 bg-amber-200/80 hover:bg-amber-300 rounded-lg whitespace-nowrap transition"
+                title="Tạo mã 4 số ngẫu nhiên"
+              >
+                🎲 Tạo mã
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div>
+            <label for="fieldMhs" class="block text-xs font-semibold text-slate-700 mb-1">1. Mã hồ sơ (MHS)</label>
+            <input type="text" id="fieldMhs" placeholder="VD: HS-725" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600" />
+          </div>
+
+          <div>
+            <label for="fieldRecipient" class="block text-xs font-semibold text-slate-700 mb-1">4. Nơi / Người nhận <span class="text-rose-500">*</span></label>
+            <select id="fieldRecipient" required onchange="handleRecipientSelectChangeInForm(this.value)" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:border-emerald-600"></select>
+            <!-- Ô nhập thêm nơi nhận tùy chỉnh nếu chọn + Nơi nhận khác -->
+            <div id="customRecipientInputContainer" class="hidden mt-1.5">
+              <input
+                type="text"
+                id="fieldCustomRecipient"
+                placeholder="Nhập tên phòng ban / nơi nhận mới..."
+                class="w-full px-3 py-1.5 text-xs border border-purple-300 rounded-lg bg-purple-50/50 focus:outline-none focus:border-purple-600"
+              />
+            </div>
+          </div>
+
+          <div class="sm:col-span-2">
+            <label for="fieldTitle" class="block text-xs font-semibold text-slate-700 mb-1">2. Tên hồ sơ / Nội dung chứng từ <span class="text-rose-500">*</span></label>
+            <input type="text" id="fieldTitle" required placeholder="VD: 4 HĐMBHH,DV hoặc 4 HĐK 0110/26K/MFD-TA + 3CK" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600" />
+          </div>
+
+          <div>
+            <label for="fieldSupplier" class="block text-xs font-semibold text-slate-700 mb-1">3. Nhà cung cấp (NCC) <span class="text-rose-500">*</span></label>
+            <input type="text" id="fieldSupplier" required placeholder="VD: ĐIỆN CAO THẾ, Pacific..." class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600" />
+          </div>
+
+          <div>
+            <label for="fieldSender" class="block text-xs font-semibold text-slate-700 mb-1">6. Người gửi <span class="text-rose-500">*</span></label>
+            <input type="text" id="fieldSender" list="senderSuggestions" required placeholder="VD: A. Huy, C. Khánh, C. Hồng" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600" />
+            <datalist id="senderSuggestions">
+              <option value="A. Huy"></option>
+              <option value="C. Khánh"></option>
+              <option value="C. Hồng"></option>
+              <option value="Linh AP"></option>
+            </datalist>
+          </div>
+
+          <div>
+            <label for="fieldSentDate" class="block text-xs font-semibold text-slate-700 mb-1">5. Ngày gửi <span class="text-rose-500">*</span></label>
+            <input type="date" id="fieldSentDate" required class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600" />
+          </div>
+
+          <div>
+            <label for="fieldDueDate" class="block text-xs font-semibold text-slate-700 mb-1">8. Ngày hạn <span class="text-slate-400 font-normal">(Không bắt buộc)</span></label>
+            <input type="date" id="fieldDueDate" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600" />
+          </div>
+
+          <div>
+            <label for="fieldReturnDate" class="block text-xs font-semibold text-slate-700 mb-1">7. Ngày trả lại (Để trống nếu chưa trả)</label>
+            <input type="date" id="fieldReturnDate" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600" />
+          </div>
+
+          <div class="sm:col-span-2">
+            <label for="fieldNote" class="block text-xs font-semibold text-slate-700 mb-1">9. Lưu ý</label>
+            <textarea id="fieldNote" rows="2" placeholder="Ghi chú thêm về chứng từ..." class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600"></textarea>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+          <button type="button" onclick="closeFormModal()" class="px-4 py-2 rounded-lg text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200">Hủy</button>
+          <button type="submit" class="px-5 py-2 rounded-lg text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 shadow-xs">Lưu hồ sơ</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL XÁC THỰC MÃ CẤP QUYỀN CHỈNH SỬA ==================== -->
+  <div id="passcodeModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-4 flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-sm overflow-hidden">
+      <div class="p-5 text-center">
+        <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 mx-auto flex items-center justify-center mb-3 shadow-inner">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+        </div>
+        <h3 class="text-base font-bold text-slate-900">Xác thực quyền chỉnh sửa</h3>
+        <p class="text-xs text-slate-500 mt-1">Vui lòng nhập đúng mã cấp quyền của hồ sơ này để tiếp tục.</p>
+
+        <div class="my-3 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-left text-xs">
+          <div class="flex items-center justify-between">
+            <span class="font-mono font-bold text-slate-800" id="passcodeModalMhs">HS-000</span>
+            <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800">Có mã bảo mật</span>
+          </div>
+          <div class="text-slate-600 truncate mt-1 font-medium" id="passcodeModalTitle">Tên hồ sơ</div>
+        </div>
+
+        <div class="space-y-1.5 text-left mt-3">
+          <label for="passcodeModalInput" class="block text-xs font-semibold text-slate-700">Mã cấp quyền:</label>
+          <div class="relative">
+            <input
+              type="password"
+              id="passcodeModalInput"
+              placeholder="Nhập mã bảo vệ..."
+              class="w-full pl-3 pr-10 py-2.5 text-center font-mono text-base tracking-widest bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-500/20"
+              onkeydown="if (event.key === 'Enter') submitPasscodeVerification()"
+            />
+            <button
+              type="button"
+              onclick="togglePasscodeVisibility()"
+              class="absolute right-2.5 inset-y-0 flex items-center text-slate-400 hover:text-slate-700"
+              title="Hiện/Ẩn mã"
+            >
+              👁
+            </button>
+          </div>
+          <p id="passcodeErrorMsg" class="hidden text-xs text-rose-600 font-medium pt-1 text-center">Mã không chính xác. Vui lòng thử lại!</p>
+        </div>
+      </div>
+
+      <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+        <button type="button" onclick="closePasscodeModal()" class="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 bg-slate-200 hover:bg-slate-300 transition">
+          Hủy bỏ
+        </button>
+        <button type="button" onclick="submitPasscodeVerification()" class="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 shadow-xs transition">
+          Xác nhận mở khóa
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 2: CHI TIẾT HỒ SƠ & LỊCH SỬ LUÂN CHUYỂN ==================== -->
+  <div id="detailModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-3xl overflow-hidden">
+      <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-start justify-between gap-3">
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <span id="detailMhs" class="px-2 py-0.5 rounded bg-slate-800 text-white font-mono text-xs font-bold">HS-000</span>
+            <span id="detailRecipientBadge"></span>
+            <span id="detailDeadlineBadge"></span>
+            <span id="detailSecurityBadge"></span>
+          </div>
+          <h2 id="detailTitle" class="text-base font-bold text-slate-900 mt-1.5">Tên hồ sơ</h2>
+          <p class="text-xs text-slate-500">Nhà cung cấp: <span id="detailSupplier" class="font-semibold text-slate-700"></span></p>
+        </div>
+        <button type="button" onclick="closeDetailModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/70">✕</button>
+      </div>
+
+      <div class="p-5 space-y-5 max-h-[80vh] overflow-y-auto">
+        <!-- Khu vực chuyển bước quy trình -->
+        <div class="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3.5 space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-900">Chuyển nơi nhận / người duyệt</h3>
+              <p class="text-xs text-slate-600">Bấm chọn nơi nhận tiếp theo hoặc đánh dấu đã trả lại</p>
+            </div>
+            <button type="button" onclick="quickCompleteCurrentDetail()" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 shadow-2xs">
+              ✓ Trả hồ sơ hôm nay
+            </button>
+          </div>
+
+          <div id="detailStageButtons" class="grid grid-cols-2 sm:grid-cols-4 gap-1.5"></div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <input type="text" id="handoffActorInput" placeholder="Người chuyển (VD: C. Khánh)" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600" />
+            <input type="text" id="handoffNoteInput" placeholder="Ghi chú chuyển bước (không bắt buộc)..." class="sm:col-span-2 px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600" />
+          </div>
+        </div>
+
+        <!-- Bảng tóm tắt thông tin 9 trường -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+          <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+            <span class="text-slate-500 block">Người gửi</span>
+            <span id="detailSender" class="font-bold text-slate-800 mt-0.5 block"></span>
+          </div>
+          <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+            <span class="text-slate-500 block">Ngày gửi</span>
+            <span id="detailSentDate" class="font-bold text-slate-800 mt-0.5 block"></span>
+          </div>
+          <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+            <span class="text-slate-500 block">Ngày hạn</span>
+            <span id="detailDueDate" class="font-bold text-slate-800 mt-0.5 block"></span>
+          </div>
+          <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+            <span class="text-slate-500 block">Ngày trả lại</span>
+            <span id="detailReturnDate" class="font-bold text-emerald-700 mt-0.5 block"></span>
+          </div>
+          <div class="col-span-2 sm:col-span-4 p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+            <span class="text-slate-500 block">Lưu ý</span>
+            <span id="detailNote" class="text-slate-800 mt-0.5 block"></span>
+          </div>
+        </div>
+
+        <!-- Lịch sử luân chuyển -->
+        <div>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2.5">Lịch sử luân chuyển từng bước</h3>
+          <div id="detailHistoryList" class="space-y-2 border-l-2 border-slate-200 ml-2 pl-3.5"></div>
+        </div>
+      </div>
+
+      <div class="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+        <button type="button" onclick="promptDeleteCurrentDetailWithAuth()" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-1">
+          <span>🗑 Xóa hồ sơ</span>
+        </button>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="editFromDetailModalWithAuth()" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 flex items-center gap-1.5">
+            <span>🔒 Chỉnh sửa</span>
+          </button>
+          <button type="button" onclick="closeDetailModal()" class="px-4 py-1.5 rounded-lg text-xs font-semibold text-white bg-slate-800 hover:bg-slate-900">
+            Đóng
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 3: XUẤT FILE EXCEL (.XLSX) ==================== -->
+  <div id="exportModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs p-4 flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-5 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div>
+          <h3 class="text-base font-bold text-slate-900">Xuất báo cáo Excel (.xlsx)</h3>
+          <p class="text-xs text-slate-500">Gồm 2 sheet: Theo_doi_ho_so & Lich_su_luan_chuyen</p>
+        </div>
+        <button type="button" onclick="closeExportModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700">✕</button>
+      </div>
+
+      <div class="space-y-2.5 text-xs">
+        <button type="button" onclick="exportToXLSX('filtered')" class="w-full p-3.5 rounded-xl border border-emerald-300 bg-emerald-50/70 hover:bg-emerald-100/80 text-left flex items-center justify-between transition">
+          <div>
+            <span class="font-bold text-emerald-900 text-sm block">Xuất theo danh sách đang lọc trên bảng</span>
+            <span id="exportFilteredSubtext" class="text-emerald-700 mt-0.5 block">0 hồ sơ đang lọc</span>
+          </div>
+          <span class="px-2.5 py-1 rounded-lg bg-emerald-700 text-white font-semibold">Tải .xlsx</span>
+        </button>
+
+        <button type="button" onclick="exportToXLSX('all')" class="w-full p-3.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-left flex items-center justify-between transition">
+          <div>
+            <span class="font-bold text-slate-900 text-sm block">Xuất toàn bộ dữ liệu trong sổ</span>
+            <span id="exportAllSubtext" class="text-slate-500 mt-0.5 block">0 hồ sơ tổng cộng</span>
+          </div>
+          <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-white font-semibold">Tải .xlsx</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 4: XÁC NHẬN XÓA HỒ SƠ ==================== -->
+  <div id="confirmDeleteModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs p-4 flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-5 space-y-4">
+      <div class="flex items-start gap-3">
+        <div class="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <div>
+          <h3 id="confirmDeleteTitle" class="text-sm font-bold text-slate-900">Xác nhận xóa hồ sơ?</h3>
+          <p id="confirmDeleteMessage" class="text-xs text-slate-600 mt-1"></p>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-1">
+        <button type="button" onclick="closeDeleteModal()" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200">Hủy</button>
+        <button type="button" onclick="executeConfirmedDelete()" class="px-4 py-1.5 rounded-lg text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700">Xác nhận xóa</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 5: TẢI DỮ LIỆU EXCEL LÊN THEO TEMPLATE ==================== -->
+  <div id="importModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-4xl overflow-hidden">
+      <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
+        <div>
+          <h3 class="text-base font-bold text-slate-900">Tải dữ liệu từ file Excel (.xlsx) lên hệ thống</h3>
+          <p class="text-xs text-slate-500">Đọc trực tiếp file Excel 9 cột mẫu, tự động gán mã bảo mật nếu thiếu</p>
+        </div>
+        <button type="button" onclick="closeImportModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700">✕</button>
+      </div>
+
+      <div class="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+        <div
+          id="dropZone"
+          ondragover="handleImportDragOver(event)"
+          ondragleave="handleImportDragLeave(event)"
+          ondrop="handleImportDrop(event)"
+          onclick="document.getElementById('excelFileInput').click()"
+          class="border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50 hover:bg-emerald-50/40 rounded-2xl p-6 text-center cursor-pointer transition"
+        >
+          <input type="file" id="excelFileInput" accept=".xlsx, .xls" class="hidden" onchange="handleExcelFileSelected(event)" />
+          <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto mb-2">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+          </div>
+          <p class="text-sm font-bold text-slate-800">Kéo & thả file Excel (.xlsx) vào đây, hoặc <span class="text-emerald-700 underline">bấm để chọn file</span></p>
+          <p class="text-xs text-slate-500 mt-1">Hỗ trợ file template chuẩn 9 cột hoặc file trích xuất từ phần mềm</p>
+        </div>
+
+        <div id="importPreviewContainer" class="hidden space-y-3">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-bold text-slate-800">Xem trước dữ liệu: <span id="previewCountBadge" class="text-emerald-700">0 dòng</span></span>
+            <button type="button" onclick="resetImportPreview()" class="text-rose-600 hover:underline">Chọn file khác</button>
+          </div>
+          <div class="overflow-x-auto max-h-56 border border-slate-200 rounded-lg text-xs">
+            <table class="w-full text-left border-collapse">
+              <thead class="bg-slate-100 text-slate-700 font-semibold sticky top-0">
+                <tr>
+                  <th class="p-2 border">MHS</th>
+                  <th class="p-2 border">Tên hồ sơ</th>
+                  <th class="p-2 border">NCC</th>
+                  <th class="p-2 border">Nơi nhận</th>
+                  <th class="p-2 border">Ngày gửi</th>
+                  <th class="p-2 border">Người gửi</th>
+                  <th class="p-2 border">Ngày hạn</th>
+                </tr>
+              </thead>
+              <tbody id="importPreviewTableBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+        <button type="button" onclick="downloadTemplateXLSX()" class="text-xs font-semibold text-emerald-700 hover:underline">
+          Chưa có mẫu? Tải file template mẫu (.xlsx)
+        </button>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="closeImportModal()" class="px-4 py-2 rounded-lg text-xs font-semibold text-slate-600 bg-slate-200 hover:bg-slate-300">
+            Hủy
+          </button>
+          <button type="button" id="btnReplaceImport" onclick="executeExcelImport('replace')" disabled class="px-4 py-2 rounded-lg text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 disabled:opacity-40 disabled:pointer-events-none">
+            Thay thế toàn bộ sổ
+          </button>
+          <button type="button" id="btnAppendImport" onclick="executeExcelImport('append')" disabled class="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 shadow-xs disabled:opacity-40 disabled:pointer-events-none">
+            + Gộp thêm vào sổ
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 6: QUẢN LÝ NƠI NHẬN ==================== -->
+  <div id="recipientManagerModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-4 flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden">
+      <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-sm">🏢</div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-900">Danh sách Nơi nhận / Người duyệt</h3>
+            <p class="text-[11px] text-slate-500">Tùy biến các phòng ban theo mô hình thực tế</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeRecipientManagerModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700">✕</button>
+      </div>
+
+      <div class="p-5 space-y-4 text-xs">
+        <div>
+          <label for="newRecipientInput" class="block font-semibold text-slate-700 mb-1">Thêm nơi/người nhận mới:</label>
+          <div class="flex gap-2">
+            <input
+              type="text"
+              id="newRecipientInput"
+              placeholder="VD: Ban Giám Đốc, Kế Toán Trưởng..."
+              class="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-purple-600"
+              onkeydown="if (event.key === 'Enter') handleAddNewRecipientFromManager()"
+            />
+            <button
+              type="button"
+              onclick="handleAddNewRecipientFromManager()"
+              class="px-3.5 py-2 font-semibold text-white bg-purple-700 hover:bg-purple-800 rounded-lg shadow-2xs whitespace-nowrap"
+            >
+              + Thêm
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-semibold text-slate-700">Các nơi nhận hiện hành (<span id="recipientCountLabel">0</span>):</span>
+            <span class="text-[11px] text-slate-400">Bấm ✕ để xóa nếu chưa dùng</span>
+          </div>
+          <div id="recipientListBadges" class="flex flex-wrap gap-1.5 max-h-52 overflow-y-auto p-2.5 bg-slate-50 border border-slate-200 rounded-xl"></div>
+        </div>
+      </div>
+
+      <div class="px-5 py-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+        <button type="button" onclick="closeRecipientManagerModal()" class="px-4 py-1.5 rounded-lg font-semibold text-white bg-slate-800 hover:bg-slate-900">
+          Xong
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TOAST THÔNG BÁO ==================== -->
+  <div id="toastContainer" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+  <!-- ==================== JAVASCRIPT LOGIC ==================== -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      doc,
+      setDoc,
+      addDoc,
+      updateDoc,
+      deleteDoc,
+      onSnapshot
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // -------------------------------------------------------------------------
+    // 1. CẤU HÌNH BAN ĐẦU & DANH SÁCH NƠI NHẬN MẶC ĐỊNH
+    // -------------------------------------------------------------------------
+    const DEFAULT_RECIPIENTS = [
+      "FN",
+      "Bộ phận",
+      "GM",
+      "OR c Nhung/Thảo",
+      "OR c Thủ",
+      "c.Mai",
+      "Linh AP"
+    ];
+
+    const RECIPIENT_BADGE_STYLES = {
+      "FN":              "bg-cyan-50 text-cyan-800 border-cyan-200",
+      "Bộ phận":         "bg-slate-100 text-slate-700 border-slate-300",
+      "GM":              "bg-amber-50 text-amber-800 border-amber-300",
+      "OR c Nhung/Thảo": "bg-purple-50 text-purple-800 border-purple-200",
+      "OR c Thủ":        "bg-indigo-50 text-indigo-800 border-indigo-200",
+      "c.Mai":           "bg-pink-50 text-pink-800 border-pink-200",
+      "Linh AP":         "bg-sky-50 text-sky-800 border-sky-200",
+      "Đã trả lại":      "bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold"
+    };
+
+    const BADGE_COLOR_PALETTE = [
+      "bg-blue-50 text-blue-800 border-blue-200",
+      "bg-emerald-50 text-emerald-800 border-emerald-200",
+      "bg-amber-50 text-amber-800 border-amber-200",
+      "bg-purple-50 text-purple-800 border-purple-200",
+      "bg-indigo-50 text-indigo-800 border-indigo-200",
+      "bg-rose-50 text-rose-800 border-rose-200",
+      "bg-teal-50 text-teal-800 border-teal-200",
+      "bg-cyan-50 text-cyan-800 border-cyan-200",
+      "bg-orange-50 text-orange-800 border-orange-200",
+      "bg-pink-50 text-pink-800 border-pink-200"
+    ];
+
+    function getRecipientBadgeStyle(rec) {
+      if (rec === "Đã trả lại") return RECIPIENT_BADGE_STYLES["Đã trả lại"];
+      if (RECIPIENT_BADGE_STYLES[rec]) return RECIPIENT_BADGE_STYLES[rec];
+      let hash = 0;
+      for (let i = 0; i < rec.length; i++) hash = rec.charCodeAt(i) + ((hash << 5) - hash);
+      return BADGE_COLOR_PALETTE[Math.abs(hash) % BADGE_COLOR_PALETTE.length];
+    }
+
+    // 5 hồ sơ mẫu thực tế (kèm mã cấp quyền chỉnh sửa mặc định: 1234)
+    const SEED_DOCUMENTS = [
+      {
+        seedId: "seed-HS-713",
+        mhs: "HS-713",
+        title: "4 HĐMBHH,DV",
+        supplier: "ĐIỆN CAO THẾ",
+        recipient: "Đã trả lại",
+        sentDate: "2026-11-03",
+        sender: "A. Huy",
+        returnDate: "2026-11-05",
+        dueDate: "2026-11-07",
+        note: "",
+        editCode: "1234",
+        history: [
+          { time: "2026-11-05 15:10", actor: "A. Huy", from: "GM", to: "Đã trả lại", note: "GM đã ký duyệt, hoàn tất trả hồ sơ" },
+          { time: "2026-11-03 08:30", actor: "A. Huy", from: "Khởi tạo", to: "GM", note: "Trình ký GM" }
+        ]
+      },
+      {
+        seedId: "seed-HS-715",
+        mhs: "HS-715",
+        title: "4 HĐK 0110/26K/MFD-TA + 3CK",
+        supplier: "Trâm Anh",
+        recipient: "Đã trả lại",
+        sentDate: "2026-11-03",
+        sender: "C. Khánh",
+        returnDate: "2026-11-12",
+        dueDate: "2026-11-12",
+        note: "",
+        editCode: "1234",
+        history: [
+          { time: "2026-11-12 14:20", actor: "C. Khánh", from: "OR c Thủ", to: "Đã trả lại", note: "Hoàn tất đúng hạn" },
+          { time: "2026-11-03 09:15", actor: "C. Khánh", from: "Khởi tạo", to: "OR c Thủ", note: "Trình ký HĐK kèm 3 cam kết" }
+        ]
+      },
+      {
+        seedId: "seed-HS-720",
+        mhs: "HS-720",
+        title: "4 HDDMBHH,DV 021126/HDMBDC/MFD-TN",
+        supplier: "TUỆ NGHI",
+        recipient: "GM",
+        sentDate: "2026-11-05",
+        sender: "C. Hồng",
+        returnDate: "",
+        dueDate: "2026-11-18",
+        note: "Chờ GM ký duyệt",
+        editCode: "1234",
+        history: [
+          { time: "2026-11-05 14:00", actor: "C. Hồng", from: "Khởi tạo", to: "GM", note: "Chờ GM ký duyệt" }
+        ]
+      },
+      {
+        seedId: "seed-HS-721",
+        mhs: "HS-721",
+        title: "2 PLHĐ Bảo trì 01-DN14.2186-10/BTTT26",
+        supplier: "Pacific",
+        recipient: "GM",
+        sentDate: "2026-11-06",
+        sender: "A. Huy",
+        returnDate: "",
+        dueDate: "",
+        note: "",
+        editCode: "1234",
+        history: [
+          { time: "2026-11-06 08:45", actor: "A. Huy", from: "Khởi tạo", to: "GM", note: "Chuyển GM ký phụ lục bảo trì" }
+        ]
+      },
+      {
+        seedId: "seed-HS-722",
+        mhs: "HS-722",
+        title: "4 HĐK + 3 CK 01012026/CTT-LP",
+        supplier: "Châu Thanh Thảo",
+        recipient: "OR c Thủ",
+        sentDate: "2026-11-16",
+        sender: "C. Khánh",
+        returnDate: "",
+        dueDate: "",
+        note: "",
+        editCode: "1234",
+        history: [
+          { time: "2026-11-16 09:30", actor: "C. Khánh", from: "Khởi tạo", to: "OR c Thủ", note: "Chuyển OR c Thủ kiểm tra & trình ký" }
+        ]
+      }
+    ];
+
+    const LOCAL_STORAGE_KEY = "signing_documents_store_v2";
+    const RECIPIENTS_STORAGE_KEY = "signing_recipients_store_v2";
+
+    // -------------------------------------------------------------------------
+    // 2. TRẠNG THÁI ỨNG DỤNG (STATE)
+    // -------------------------------------------------------------------------
+    const state = {
+      documents: [],
+      recipients: [...DEFAULT_RECIPIENTS],
+      rowDensity: "compact",    // 'compact' | 'comfortable'
+      showQuickAdd: true,
+      searchQuery: "",
+      statusFilter: "all",
+      stageFilter: "all",
+      senderFilter: "all",
+      sortBy: "mhs_desc",
+      activeDetailId: null,
+      deleteTargetDocId: null,
+      parsedImportRows: [],
+      isCloudMode: false,
+      hasSeededOnce: false,
+      pendingAuthTargetDocId: null,
+      pendingAuthAction: null // 'edit' | 'delete'
+    };
+
+    function saveLocalDocuments() {
+      if (!state.isCloudMode) {
+        try {
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state.documents));
+        } catch (e) {
+          console.warn("Không thể lưu vào localStorage:", e);
+        }
+      }
+    }
+
+    function saveLocalRecipients() {
+      try {
+        localStorage.setItem(RECIPIENTS_STORAGE_KEY, JSON.stringify(state.recipients));
+      } catch (e) {
+        console.warn("Không thể lưu nơi nhận vào localStorage:", e);
+      }
+    }
+
+    function loadLocalRecipients() {
+      try {
+        const stored = localStorage.getItem(RECIPIENTS_STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            state.recipients = parsed;
+          }
+        }
+      } catch (e) {
+        console.warn("Không thể đọc nơi nhận:", e);
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 3. TIỆN ÍCH HỖ TRỢ
+    // -------------------------------------------------------------------------
+    function removeVietnameseTones(str) {
+      if (!str) return "";
+      return String(str)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[đĐ]/g, "d")
+        .toLowerCase()
+        .trim();
+    }
+
+    function escapeHTML(str) {
+      if (str === null || str === undefined) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function getTodayLocalISO() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, "0");
+      const d = String(now.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function formatDateVN(isoStr) {
+      if (!isoStr || typeof isoStr !== "string") return "";
+      const parts = isoStr.split("-");
+      if (parts.length !== 3) return isoStr;
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+
+    function getCurrentTimestampVN() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, "0");
+      const d = String(now.getDate()).padStart(2, "0");
+      const hh = String(now.getHours()).padStart(2, "0");
+      const mm = String(now.getMinutes()).padStart(2, "0");
+      return `${d}/${m}/${y} ${hh}:${mm}`;
+    }
+
+    function diffDaysFromToday(targetISO) {
+      if (!targetISO) return null;
+      const today = new Date(getTodayLocalISO());
+      const target = new Date(targetISO);
+      const diffTime = target - today;
+      return Math.round(diffTime / (1000 * 60 * 60 * 24));
+    }
+
+    function evaluateDocumentStatus(docItem) {
+      if (docItem.recipient === "Đã trả lại" || docItem.returnDate) {
+        return {
+          category: "returned",
+          label: "Đã trả lại",
+          badgeClass: "bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold"
+        };
+      }
+
+      if (docItem.dueDate) {
+        const remaining = diffDaysFromToday(docItem.dueDate);
+        if (remaining !== null) {
+          if (remaining < 0) {
+            return {
+              category: "overdue",
+              label: `Quá hạn ${Math.abs(remaining)} ngày`,
+              badgeClass: "bg-rose-50 text-rose-700 border-rose-300 font-bold animate-pulse"
+            };
+          }
+          if (remaining <= 2) {
+            return {
+              category: "due_soon",
+              label: remaining === 0 ? "Hạn chót: Hôm nay" : `Còn ${remaining} ngày`,
+              badgeClass: "bg-amber-50 text-amber-800 border-amber-300 font-bold"
+            };
+          }
+        }
+      }
+
+      return {
+        category: "in_progress",
+        label: "Đang trình ký",
+        badgeClass: "bg-blue-50 text-blue-700 border-blue-200 font-medium"
+      };
+    }
+
+    function generateNextMHS() {
+      let maxNum = 700;
+      state.documents.forEach((d) => {
+        if (!d.mhs) return;
+        const match = String(d.mhs).match(/\d+/);
+        if (match) {
+          const n = parseInt(match[0], 10);
+          if (!isNaN(n) && n > maxNum) maxNum = n;
+        }
+      });
+      return `HS-${maxNum + 1}`;
+    }
+
+    function generateRandom4Digits() {
+      return String(Math.floor(1000 + Math.random() * 9000));
+    }
+
+    function showToast(message, type = "info") {
+      const container = document.getElementById("toastContainer");
+      const toast = document.createElement("div");
+      const colorClasses = {
+        success: "bg-emerald-800 text-white border-emerald-900",
+        error: "bg-rose-800 text-white border-rose-900",
+        info: "bg-slate-900 text-white border-slate-950",
+        warning: "bg-amber-700 text-white border-amber-800"
+      }[type] || "bg-slate-900 text-white";
+
+      toast.className = `pointer-events-auto px-4 py-2.5 rounded-xl shadow-lg border text-xs font-medium flex items-center justify-between gap-2.5 transition-all duration-200 transform translate-y-2 opacity-0 ${colorClasses}`;
+      toast.innerHTML = `
+        <span class="leading-relaxed">${escapeHTML(message)}</span>
+        <button type="button" class="text-white/70 hover:text-white font-bold ml-2 text-sm leading-none">✕</button>
+      `;
+
+      toast.querySelector("button").onclick = () => {
+        toast.classList.add("opacity-0", "translate-y-2");
+        setTimeout(() => toast.remove(), 200);
+      };
+
+      container.appendChild(toast);
+      requestAnimationFrame(() => {
+        toast.classList.remove("opacity-0", "translate-y-2");
+      });
+
+      setTimeout(() => {
+        if (toast.parentElement) {
+          toast.classList.add("opacity-0", "translate-y-2");
+          setTimeout(() => toast.remove(), 200);
+        }
+      }, 4000);
+    }
+
+    // -------------------------------------------------------------------------
+    // 4. LỚP DỮ LIỆU: ĐỒNG BỘ TỪ BIẾN MÔI TRƯỜNG VERCEL / LOCAL FILE
+    // -------------------------------------------------------------------------
+    let auth = null;
+    let db = null;
+    let currentUser = null;
+    let collectionRef = null;
+
+    async function getActiveFirebaseConfig() {
+      // 1. Kiểm tra Vercel Environment Variables qua serverless API /api/config
+      try {
+        const res = await fetch("/api/config");
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.apiKey && data.projectId) {
+            return data;
+          }
+        }
+      } catch (e) {
+        // Có thể đang chạy offline / local
+      }
+
+      // 2. Kiểm tra biến window.__firebase_config từ file firebase-config.js (nếu có)
+      if (typeof window.__firebase_config !== "undefined" && window.__firebase_config) {
+        if (typeof window.__firebase_config === "string") {
+          try { return JSON.parse(window.__firebase_config); } catch (e) {}
+        }
+        if (window.__firebase_config.apiKey) return window.__firebase_config;
+      }
+
+      return null;
+    }
+
+    async function initDataLayer() {
+      loadLocalRecipients();
+      const firebaseConfig = await getActiveFirebaseConfig();
+
+      if (!firebaseConfig || !firebaseConfig.apiKey) {
+        fallbackToMemoryMode();
+        return;
+      }
+
+      try {
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+
+        const cred = await signInAnonymously(auth);
+        currentUser = cred.user;
+
+        const appId = typeof __app_id !== "undefined" && __app_id ? __app_id : "default-signing-tracker";
+        collectionRef = collection(db, "artifacts", appId, "public", "data", "signing_documents");
+
+        state.isCloudMode = true;
+        const badge = document.getElementById("syncStatusBadge");
+        if (badge) {
+          badge.className = "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 transition";
+          badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Đồng bộ trực tuyến (Vercel Environment)`;
+        }
+
+        onSnapshot(
+          collectionRef,
+          async (snapshot) => {
+            if (snapshot.empty && !state.hasSeededOnce) {
+              state.hasSeededOnce = true;
+              await seedInitialDocuments();
+              return;
+            }
+            state.hasSeededOnce = true;
+            state.documents = snapshot.docs.map((docSnap) => ({
+              id: docSnap.id,
+              ...docSnap.data()
+            }));
+            renderAll();
+          },
+          (err) => {
+            console.error("Firestore snapshot error:", err);
+            fallbackToMemoryMode();
+          }
+        );
+      } catch (err) {
+        console.warn("Chuyển sang chế độ lưu trữ Offline:", err);
+        fallbackToMemoryMode();
+      }
+    }
+
+    function fallbackToMemoryMode() {
+      state.isCloudMode = false;
+      const badge = document.getElementById("syncStatusBadge");
+      if (badge) {
+        badge.className = "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 transition";
+        badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>Chế độ Offline (Bộ nhớ máy)`;
+      }
+
+      try {
+        const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            state.documents = parsed;
+          }
+        }
+      } catch (err) {
+        console.warn("Lỗi đọc dữ liệu từ localStorage:", err);
+      }
+
+      if (state.documents.length === 0) {
+        state.documents = SEED_DOCUMENTS.map((item) => ({
+          ...item,
+          id: item.seedId,
+          createdAt: Date.now()
+        }));
+        saveLocalDocuments();
+      }
+      renderAll();
+    }
+
+    async function seedInitialDocuments() {
+      if (!state.isCloudMode || !currentUser || !collectionRef) return;
+      for (const item of SEED_DOCUMENTS) {
+        const { seedId, ...payload } = item;
+        await setDoc(doc(collectionRef, seedId), {
+          ...payload,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        });
+      }
+    }
+
+    async function saveNewDocument(payload) {
+      const record = {
+        ...payload,
+        editCode: payload.editCode || generateRandom4Digits(),
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+      if (state.isCloudMode && currentUser && collectionRef) {
+        await addDoc(collectionRef, record);
+      } else {
+        state.documents = [{ id: "mem-" + crypto.randomUUID(), ...record }, ...state.documents];
+        saveLocalDocuments();
+        renderAll();
+      }
+    }
+
+    async function updateExistingDocument(docId, updates) {
+      const recordUpdates = {
+        ...updates,
+        updatedAt: Date.now()
+      };
+      if (state.isCloudMode && currentUser && collectionRef) {
+        await updateDoc(doc(collectionRef, docId), recordUpdates);
+      } else {
+        state.documents = state.documents.map((d) => (d.id === docId ? { ...d, ...recordUpdates } : d));
+        saveLocalDocuments();
+        renderAll();
+      }
+    }
+
+    async function removeDocumentById(docId) {
+      if (state.isCloudMode && currentUser && collectionRef) {
+        await deleteDoc(doc(collectionRef, docId));
+      } else {
+        state.documents = state.documents.filter((d) => d.id !== docId);
+        saveLocalDocuments();
+        renderAll();
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. LỌC & SẮP XẾP DỮ LIỆU
+    // -------------------------------------------------------------------------
+    function getProcessedDocuments() {
+      const qNorm = removeVietnameseTones(state.searchQuery);
+
+      const filtered = state.documents.filter((item) => {
+        const st = evaluateDocumentStatus(item);
+
+        if (state.statusFilter !== "all") {
+          if (state.statusFilter === "returned" && st.category !== "returned") return false;
+          if (state.statusFilter === "in_progress" && st.category === "returned") return false;
+          if (state.statusFilter === "overdue" && st.category !== "overdue") return false;
+          if (state.statusFilter === "due_soon" && st.category !== "due_soon") return false;
+          if (state.statusFilter === "urgent" && !["overdue", "due_soon"].includes(st.category)) return false;
+        }
+
+        if (state.stageFilter !== "all") {
+          if (item.recipient !== state.stageFilter) return false;
+        }
+
+        if (state.senderFilter !== "all") {
+          if (item.sender !== state.senderFilter) return false;
+        }
+
+        if (qNorm) {
+          const haystack = [
+            item.mhs,
+            item.title,
+            item.supplier,
+            item.recipient,
+            item.sender,
+            item.note
+          ]
+            .map((field) => removeVietnameseTones(field || ""))
+            .join(" ");
+
+          if (!haystack.includes(qNorm)) return false;
+        }
+
+        return true;
+      });
+
+      filtered.sort((a, b) => {
+        if (state.sortBy === "sent_desc") {
+          return (b.sentDate || "").localeCompare(a.sentDate || "");
+        }
+        if (state.sortBy === "sent_asc") {
+          return (a.sentDate || "").localeCompare(b.sentDate || "");
+        }
+        if (state.sortBy === "due_asc") {
+          if (!a.dueDate) return 1;
+          if (!b.dueDate) return -1;
+          return a.dueDate.localeCompare(b.dueDate);
+        }
+        // MHS mới nhất
+        const getNum = (v) => {
+          const m = String(v || "").match(/\d+/);
+          return m ? parseInt(m[0], 10) : 0;
+        };
+        return getNum(b.mhs) - getNum(a.mhs);
+      });
+
+      return filtered;
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. RENDER GIAO DIỆN
+    // -------------------------------------------------------------------------
+    function renderAll() {
+      renderKPIAndQuickPills();
+      renderDropdownFilters();
+      renderLedgerTable();
+      updateToolbarControls();
+    }
+
+    function renderKPIAndQuickPills() {
+      let total = 0;
+      let inProgress = 0;
+      let overdue = 0;
+      let dueSoon = 0;
+      let returned = 0;
+
+      state.documents.forEach((item) => {
+        total++;
+        const st = evaluateDocumentStatus(item);
+        if (st.category === "returned") returned++;
+        else if (st.category === "overdue") { inProgress++; overdue++; }
+        else if (st.category === "due_soon") { inProgress++; dueSoon++; }
+        else inProgress++;
+      });
+
+      const urgentCount = overdue + dueSoon;
+
+      document.getElementById("kpiTotalCount").textContent = total;
+      document.getElementById("kpiInProgressCount").textContent = inProgress;
+      document.getElementById("kpiUrgentCount").textContent = urgentCount;
+      document.getElementById("kpiOverdueCount").textContent = overdue;
+      document.getElementById("kpiReturnedCount").textContent = returned;
+
+      const urgentDot = document.getElementById("kpiUrgentDot");
+      if (urgentCount > 0) urgentDot.classList.remove("hidden");
+      else urgentDot.classList.add("hidden");
+
+      ["all", "in_progress", "urgent", "returned"].forEach((k) => {
+        const card = document.getElementById(`kpi-${k}`);
+        if (!card) return;
+        if (state.statusFilter === k) {
+          card.classList.add("ring-2", "ring-emerald-600", "bg-emerald-50/20");
+        } else {
+          card.classList.remove("ring-2", "ring-emerald-600", "bg-emerald-50/20");
+        }
+      });
+
+      const pills = [
+        { id: "all", label: "Tất cả", count: total },
+        { id: "in_progress", label: "Đang trình ký", count: inProgress },
+        { id: "urgent", label: "Sắp / Quá hạn", count: urgentCount, highlight: overdue > 0 },
+        { id: "returned", label: "Đã trả lại", count: returned }
+      ];
+
+      const container = document.getElementById("statusPillsContainer");
+      container.innerHTML = pills
+        .map((p) => {
+          const active = state.statusFilter === p.id;
+          const bg = active
+            ? "bg-emerald-800 text-white font-bold shadow-2xs"
+            : "bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium";
+          const badgeBg = active ? "bg-emerald-900/60 text-white" : "bg-white text-slate-700 border border-slate-200";
+
+          return `
+            <button
+              type="button"
+              onclick="setStatusFilter('${p.id}')"
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition whitespace-nowrap ${bg}"
+            >
+              <span>${p.label}</span>
+              <span class="px-1.5 py-0.2 rounded-full text-[10px] tabular-nums ${badgeBg}">${p.count}</span>
+            </button>
+          `;
+        })
+        .join("");
+    }
+
+    function renderDropdownFilters() {
+      const stageSelect = document.getElementById("stageSelect");
+      const currentStage = state.stageFilter;
+      const allOptions = [...state.recipients, "Đã trả lại"];
+
+      stageSelect.innerHTML =
+        `<option value="all">Nơi/người nhận: Tất cả (${allOptions.length})</option>` +
+        allOptions.map(
+          (st) => `<option value="${escapeHTML(st)}" ${st === currentStage ? "selected" : ""}>Nơi nhận: ${escapeHTML(st)}</option>`
+        ).join("");
+
+      const senderSelect = document.getElementById("senderSelect");
+      const senders = new Set(["A. Huy", "C. Khánh", "C. Hồng"]);
+      state.documents.forEach((d) => {
+        if (d.sender && d.sender.trim()) senders.add(d.sender.trim());
+      });
+      const currentSender = state.senderFilter;
+      senderSelect.innerHTML =
+        `<option value="all">Người gửi: Tất cả</option>` +
+        Array.from(senders)
+          .map(
+            (s) => `<option value="${escapeHTML(s)}" ${s === currentSender ? "selected" : ""}>Người gửi: ${escapeHTML(s)}</option>`
+          )
+          .join("");
+    }
+
+    function renderLedgerTable() {
+      const rows = getProcessedDocuments();
+      const thead = document.getElementById("ledgerTableHead");
+      const quickAddTbody = document.getElementById("quickAddTbody");
+      const tbody = document.getElementById("ledgerTableBody");
+      const emptyBox = document.getElementById("emptyStateBox");
+
+      document.getElementById("tableCountSummary").textContent = `Hiển thị ${rows.length} / ${state.documents.length} hồ sơ`;
+
+      const cellPad = state.rowDensity === "compact" ? "py-1.5 px-2.5 text-xs" : "py-2.5 px-3 text-[13px]";
+      const thPad = "py-2 px-2.5 text-[11px] font-bold uppercase tracking-wider border border-emerald-700/60";
+      const nextMhsSuggestion = generateNextMHS();
+      const defaultEditCode = generateRandom4Digits();
+      const todayISO = getTodayLocalISO();
+
+      const recipientOptionsHTML = state.recipients.map(
+        (opt) => `<option value="${escapeHTML(opt)}" ${opt === "GM" ? "selected" : ""}>${escapeHTML(opt)}</option>`
+      ).join("") + `<option value="Đã trả lại">Đã trả lại</option>`;
+
+      thead.innerHTML = `
+        <tr class="bg-emerald-800 text-white">
+          <th class="${thPad} text-center w-11 sticky left-0 z-30 bg-emerald-800">STT</th>
+          <th class="${thPad} whitespace-nowrap sticky left-11 z-30 bg-emerald-800">MHS</th>
+          <th class="${thPad} min-w-[240px]">Tên hồ sơ / Nội dung</th>
+          <th class="${thPad} min-w-[140px]">Nhà cung cấp</th>
+          <th class="${thPad} whitespace-nowrap min-w-[150px]">Nơi / Người nhận</th>
+          <th class="${thPad} whitespace-nowrap">Ngày gửi</th>
+          <th class="${thPad} whitespace-nowrap">Người gửi</th>
+          <th class="${thPad} whitespace-nowrap">Ngày trả lại</th>
+          <th class="${thPad} whitespace-nowrap">Ngày hạn</th>
+          <th class="${thPad} whitespace-nowrap">Trạng thái</th>
+          <th class="${thPad} min-w-[130px]">Lưu ý</th>
+          <th class="${thPad} text-right whitespace-nowrap">Thao tác</th>
+        </tr>
+      `;
+
+      quickAddTbody.classList.toggle("hidden", !state.showQuickAdd);
+      quickAddTbody.innerHTML = `
+        <tr onkeydown="handleQuickAddKeydown(event)">
+          <td class="py-1.5 px-2 text-center text-[11px] font-bold text-amber-800 border border-slate-200 sticky left-0 z-10 bg-amber-50">+Mới</td>
+          <td class="py-1.5 px-1.5 border border-slate-200 sticky left-11 z-10 bg-amber-50">
+            <input type="text" id="qaMhs" value="${escapeHTML(nextMhsSuggestion)}" class="w-20 px-1.5 py-1 text-xs font-mono font-semibold bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="MHS" />
+          </td>
+          <td class="py-1.5 px-1.5 border border-slate-200">
+            <input type="text" id="qaTitle" class="w-full min-w-[200px] px-2 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="Nhập tên hồ sơ / nội dung chứng từ..." />
+          </td>
+          <td class="py-1.5 px-1.5 border border-slate-200">
+            <input type="text" id="qaSupplier" class="w-full min-w-[120px] px-2 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="Nhà cung cấp..." />
+          </td>
+          <td class="py-1.5 px-1.5 border border-slate-200">
+            <select id="qaRecipient" class="w-full px-1.5 py-1 text-xs font-medium bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600">
+              ${recipientOptionsHTML}
+            </select>
+          </td>
+          <td class="py-1.5 px-1.5 border border-slate-200">
+            <input type="date" id="qaSentDate" value="${todayISO}" class="px-1.5 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" />
+          </td>
+          <td class="py-1.5 px-1.5 border border-slate-200">
+            <input type="text" id="qaSender" list="senderSuggestions" class="w-24 px-2 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="Người gửi" />
+          </td>
+          <td class="py-1.5 px-1.5 text-center text-[11px] text-slate-400 border border-slate-200">—</td>
+          <td class="py-1.5 px-1.5 border border-slate-200">
+            <input type="date" id="qaDueDate" value="" title="Ngày hạn (không bắt buộc)" class="px-1.5 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" />
+          </td>
+          <td class="py-1.5 px-1.5 text-center text-[11px] text-amber-800 font-medium border border-slate-200">
+            <div class="flex items-center justify-center gap-1">
+              <span title="Mã bảo vệ mặc định">🔑</span>
+              <input type="text" id="qaEditCode" value="${defaultEditCode}" title="Mã cấp quyền chỉnh sửa" class="w-14 px-1 py-0.5 text-[11px] font-mono text-center bg-white border border-amber-300 rounded" />
+            </div>
+          </td>
+          <td class="py-1.5 px-1.5 border border-slate-200">
+            <input type="text" id="qaNote" class="w-full min-w-[110px] px-2 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="Lưu ý..." />
+          </td>
+          <td class="py-1.5 px-2 text-right border border-slate-200 whitespace-nowrap">
+            <button type="button" onclick="submitQuickAddRow()" class="px-2.5 py-1 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shadow-2xs transition">
+              + Lưu dòng
+            </button>
+          </td>
+        </tr>
+      `;
+
+      if (rows.length === 0) {
+        tbody.innerHTML = "";
+        emptyBox.classList.remove("hidden");
+        return;
+      }
+      emptyBox.classList.add("hidden");
+
+      tbody.innerHTML = rows
+        .map((item, idx) => {
+          const st = evaluateDocumentStatus(item);
+          const isReturned = st.category === "returned";
+          const isOverdue = st.category === "overdue";
+          const zebraBg = isOverdue
+            ? "bg-rose-50/45 hover:bg-rose-50/80"
+            : idx % 2 === 1
+              ? "bg-slate-50/60 hover:bg-emerald-50/50"
+              : "bg-white hover:bg-emerald-50/50";
+          const stickyBg = isOverdue ? "bg-rose-50" : idx % 2 === 1 ? "bg-slate-50" : "bg-white";
+          const selectStyle = getRecipientBadgeStyle(item.recipient);
+
+          const inlineRecipientSelect = `
+            <select
+              onclick="event.stopPropagation()"
+              onchange="handleInlineRecipientChange('${item.id}', this.value)"
+              aria-label="Đổi nơi/người nhận"
+              class="w-full px-2 py-1 rounded-md text-xs font-semibold border cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-600/30 ${selectStyle}"
+            >
+              ${state.recipients.map(
+                (opt) => `<option value="${escapeHTML(opt)}" ${opt === item.recipient ? "selected" : ""}>${escapeHTML(opt)}</option>`
+              ).join("")}
+              <option value="Đã trả lại" ${item.recipient === "Đã trả lại" ? "selected" : ""}>Đã trả lại</option>
+            </select>
+          `;
+
+          const quickReturnBtn = !isReturned
+            ? `<button
+                type="button"
+                onclick="event.stopPropagation(); markReturnedOneClick('${item.id}')"
+                title="Đánh dấu đã trả lại hồ sơ hôm nay"
+                class="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold transition whitespace-nowrap"
+              >
+                ✓ Trả HS
+              </button>`
+            : `<span class="text-[11px] text-emerald-700 font-semibold px-1.5">Đã trả</span>`;
+
+          return `
+            <tr onclick="openDetailModal('${item.id}')" class="cursor-pointer transition ${zebraBg}">
+              <td class="${cellPad} text-center font-medium text-slate-500 border border-slate-200 tabular-nums sticky left-0 z-10 ${stickyBg}">${idx + 1}</td>
+              <td class="${cellPad} font-mono font-bold text-slate-800 border border-slate-200 whitespace-nowrap sticky left-11 z-10 ${stickyBg}">
+                <div class="flex items-center gap-1">
+                  <span>${escapeHTML(item.mhs)}</span>
+                  ${item.editCode ? '<span title="Hồ sơ có mã bảo mật chỉnh sửa" class="text-amber-600 text-[10px]">🔒</span>' : ''}
+                </div>
+              </td>
+              <td class="${cellPad} font-semibold text-slate-900 border border-slate-200">${escapeHTML(item.title)}</td>
+              <td class="${cellPad} text-slate-700 font-medium border border-slate-200">${escapeHTML(item.supplier)}</td>
+              <td class="${cellPad} border border-slate-200 whitespace-nowrap">${inlineRecipientSelect}</td>
+              <td class="${cellPad} text-slate-600 border border-slate-200 whitespace-nowrap tabular-nums">${formatDateVN(item.sentDate) || "—"}</td>
+              <td class="${cellPad} text-slate-800 font-medium border border-slate-200 whitespace-nowrap">${escapeHTML(item.sender)}</td>
+              <td class="${cellPad} border border-slate-200 whitespace-nowrap tabular-nums ${item.returnDate ? "text-emerald-700 font-semibold" : "text-slate-400"}">${formatDateVN(item.returnDate) || "—"}</td>
+              <td class="${cellPad} border border-slate-200 whitespace-nowrap tabular-nums ${isOverdue ? "text-rose-600 font-bold" : "text-slate-700"}>${formatDateVN(item.dueDate) || "—"}</td>
+              <td class="${cellPad} border border-slate-200 whitespace-nowrap">
+                <span class="inline-block px-2 py-0.5 rounded text-[11px] border ${st.badgeClass}">${escapeHTML(st.label)}</span>
+              </td>
+              <td class="${cellPad} text-slate-600 border border-slate-200 max-w-[180px] truncate" title="${escapeHTML(item.note)}">${escapeHTML(item.note) || ""}</td>
+              <td class="${cellPad} border border-slate-200 text-right whitespace-nowrap">
+                <div class="inline-flex items-center justify-end gap-1">
+                  ${quickReturnBtn}
+                  <button type="button" onclick="event.stopPropagation(); requestEditDocumentWithAuth('${item.id}')" class="p-1 rounded text-slate-600 hover:text-slate-900 hover:bg-slate-200/70" title="Chỉnh sửa (Yêu cầu mã)">
+                    ✎
+                  </button>
+                  <button type="button" onclick="event.stopPropagation(); requestDeleteDocumentWithAuth('${item.id}')" class="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50" title="Xóa (Yêu cầu mã)">
+                    🗑
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `;
+        })
+        .join("");
+    }
+
+    function hasActiveFilters() {
+      return (
+        state.statusFilter !== "all" ||
+        state.stageFilter !== "all" ||
+        state.senderFilter !== "all" ||
+        Boolean(state.searchQuery.trim()) ||
+        state.sortBy !== "mhs_desc"
+      );
+    }
+
+    function updateToolbarControls() {
+      document.getElementById("searchInput").value = state.searchQuery;
+      document.getElementById("clearSearchBtn").classList.toggle("hidden", !state.searchQuery.trim());
+      document.getElementById("stageSelect").value = state.stageFilter;
+      document.getElementById("senderSelect").value = state.senderFilter;
+      document.getElementById("sortSelect").value = state.sortBy;
+      document.getElementById("resetFiltersBtn").disabled = !hasActiveFilters();
+
+      const isCompact = state.rowDensity === "compact";
+      document.getElementById("densityCompactBtn").className = isCompact
+        ? "px-2.5 py-1.5 rounded-md text-xs font-semibold transition bg-white text-slate-800 shadow-2xs"
+        : "px-2.5 py-1.5 rounded-md text-xs font-medium transition text-slate-600 hover:text-slate-900";
+      document.getElementById("densityComfortableBtn").className = !isCompact
+        ? "px-2.5 py-1.5 rounded-md text-xs font-semibold transition bg-white text-slate-800 shadow-2xs"
+        : "px-2.5 py-1.5 rounded-md text-xs font-medium transition text-slate-600 hover:text-slate-900";
+
+      document.getElementById("toggleQuickAddBtn").textContent = state.showQuickAdd ? "Ẩn dòng thêm nhanh" : "Hiện dòng thêm nhanh";
+    }
+
+    // -------------------------------------------------------------------------
+    // 7. SỰ KIỆN TƯƠNG TÁC (GLOBAL HANDLERS)
+    // -------------------------------------------------------------------------
+    window.setStatusFilter = function (status) {
+      state.statusFilter = status;
+      renderAll();
+    };
+
+    window.handleSearchInput = function (value) {
+      state.searchQuery = value;
+      document.getElementById("clearSearchBtn").classList.toggle("hidden", !value.trim());
+      renderLedgerTable();
+    };
+
+    window.clearSearch = function () {
+      state.searchQuery = "";
+      document.getElementById("searchInput").value = "";
+      document.getElementById("clearSearchBtn").classList.add("hidden");
+      renderLedgerTable();
+    };
+
+    window.setRowDensity = function (density) {
+      state.rowDensity = density;
+      renderAll();
+    };
+
+    window.setStageFilter = function (val) {
+      state.stageFilter = val;
+      renderAll();
+    };
+
+    window.setSenderFilter = function (val) {
+      state.senderFilter = val;
+      renderAll();
+    };
+
+    window.setSortBy = function (val) {
+      state.sortBy = val;
+      renderAll();
+    };
+
+    window.resetAllFilters = function () {
+      state.statusFilter = "all";
+      state.stageFilter = "all";
+      state.senderFilter = "all";
+      state.searchQuery = "";
+      state.sortBy = "mhs_desc";
+      document.getElementById("searchInput").value = "";
+      document.getElementById("clearSearchBtn").classList.add("hidden");
+      renderAll();
+    };
+
+    window.toggleQuickAddRow = function () {
+      state.showQuickAdd = !state.showQuickAdd;
+      const quickAddTbody = document.getElementById("quickAddTbody");
+      if (quickAddTbody) {
+        quickAddTbody.classList.toggle("hidden", !state.showQuickAdd);
+      }
+      document.getElementById("toggleQuickAddBtn").textContent = state.showQuickAdd ? "Ẩn dòng thêm nhanh" : "Hiện dòng thêm nhanh";
+    };
+
+    window.handleQuickAddKeydown = function (event) {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        submitQuickAddRow();
+      }
+    };
+
+    window.submitQuickAddRow = async function () {
+      const mhs = (document.getElementById("qaMhs")?.value || "").trim() || generateNextMHS();
+      const title = (document.getElementById("qaTitle")?.value || "").trim();
+      const supplier = (document.getElementById("qaSupplier")?.value || "").trim();
+      const recipient = document.getElementById("qaRecipient")?.value || state.recipients[0] || "GM";
+      const sentDate = document.getElementById("qaSentDate")?.value || getTodayLocalISO();
+      const sender = (document.getElementById("qaSender")?.value || "").trim() || "Chưa rõ";
+      const dueDate = document.getElementById("qaDueDate")?.value || "";
+      const editCode = (document.getElementById("qaEditCode")?.value || "").trim() || generateRandom4Digits();
+      const note = (document.getElementById("qaNote")?.value || "").trim();
+
+      if (!title) {
+        showToast("Vui lòng nhập Tên hồ sơ / Nội dung chứng từ.", "error");
+        document.getElementById("qaTitle")?.focus();
+        return;
+      }
+
+      const returnDate = recipient === "Đã trả lại" ? getTodayLocalISO() : "";
+
+      try {
+        await saveNewDocument({
+          mhs,
+          title,
+          supplier: supplier || "—",
+          recipient,
+          sentDate,
+          sender,
+          returnDate,
+          dueDate,
+          note,
+          editCode,
+          history: [
+            {
+              time: getCurrentTimestampVN(),
+              actor: sender,
+              from: "Khởi tạo",
+              to: recipient,
+              note: note || "Thêm nhanh trên bảng"
+            }
+          ]
+        });
+        showToast(`Đã thêm hồ sơ ${mhs} vào sổ (Mã bảo mật: ${editCode})`, "success");
+      } catch (err) {
+        console.error(err);
+        showToast("Không thể lưu hồ sơ. Vui lòng thử lại.", "error");
+      }
+    };
+
+    window.handleInlineRecipientChange = async function (docId, newRecipient) {
+      const docItem = state.documents.find((d) => d.id === docId);
+      if (!docItem || docItem.recipient === newRecipient) return;
+
+      const oldRecipient = docItem.recipient;
+      const todayISO = getTodayLocalISO();
+      const updates = { recipient: newRecipient };
+
+      if (newRecipient === "Đã trả lại") {
+        updates.returnDate = todayISO;
+      }
+
+      const historyEntry = {
+        time: getCurrentTimestampVN(),
+        actor: "Người dùng",
+        from: oldRecipient,
+        to: newRecipient,
+        note: newRecipient === "Đã trả lại" ? "Hoàn tất trả hồ sơ" : `Chuyển sang ${newRecipient}`
+      };
+
+      updates.history = [historyEntry, ...(docItem.history || [])];
+
+      try {
+        await updateExistingDocument(docId, updates);
+        showToast(`Hồ sơ ${docItem.mhs}: chuyển từ ${oldRecipient} → ${newRecipient}`, "info");
+      } catch (err) {
+        console.error(err);
+        showToast("Không thể cập nhật nơi nhận.", "error");
+      }
+    };
+
+    window.markReturnedOneClick = async function (docId) {
+      await handleInlineRecipientChange(docId, "Đã trả lại");
+    };
+
+    // -------------------------------------------------------------------------
+    // 8. BẢO MẬT & XÁC THỰC MÃ CẤP QUYỀN CHỈNH SỬA / XÓA
+    // -------------------------------------------------------------------------
+    window.requestEditDocumentWithAuth = function (docId) {
+      const item = state.documents.find((d) => d.id === docId);
+      if (!item) return;
+
+      if (!item.editCode) {
+        // Hồ sơ chưa có mã bảo vệ -> Cho phép sửa ngay và nhắc đặt mã
+        openFormModal(docId);
+        return;
+      }
+
+      openPasscodeModal(docId, "edit");
+    };
+
+    window.requestDeleteDocumentWithAuth = function (docId) {
+      const item = state.documents.find((d) => d.id === docId);
+      if (!item) return;
+
+      if (!item.editCode) {
+        promptDeleteDocument(docId);
+        return;
+      }
+
+      openPasscodeModal(docId, "delete");
+    };
+
+    window.openPasscodeModal = function (docId, action = "edit") {
+      const item = state.documents.find((d) => d.id === docId);
+      if (!item) return;
+
+      state.pendingAuthTargetDocId = docId;
+      state.pendingAuthAction = action;
+
+      document.getElementById("passcodeModalMhs").textContent = item.mhs || "Chưa có MHS";
+      document.getElementById("passcodeModalTitle").textContent = item.title || "";
+      const input = document.getElementById("passcodeModalInput");
+      input.value = "";
+      input.type = "password";
+      document.getElementById("passcodeErrorMsg").classList.add("hidden");
+
+      document.getElementById("passcodeModal").classList.remove("hidden");
+      setTimeout(() => input.focus(), 100);
+    };
+
+    window.closePasscodeModal = function () {
+      document.getElementById("passcodeModal").classList.add("hidden");
+      state.pendingAuthTargetDocId = null;
+      state.pendingAuthAction = null;
+    };
+
+    window.togglePasscodeVisibility = function () {
+      const input = document.getElementById("passcodeModalInput");
+      input.type = input.type === "password" ? "text" : "password";
+    };
+
+    window.submitPasscodeVerification = function () {
+      const docId = state.pendingAuthTargetDocId;
+      const action = state.pendingAuthAction;
+      const item = state.documents.find((d) => d.id === docId);
+
+      if (!item) {
+        closePasscodeModal();
+        return;
+      }
+
+      const entered = (document.getElementById("passcodeModalInput").value || "").trim();
+      const expected = String(item.editCode || "").trim();
+
+      if (entered === expected) {
+        // Mã chính xác!
+        closePasscodeModal();
+        if (action === "edit") {
+          openFormModal(docId);
+        } else if (action === "delete") {
+          promptDeleteDocument(docId);
+        }
+      } else {
+        const errorMsg = document.getElementById("passcodeErrorMsg");
+        errorMsg.classList.remove("hidden");
+        errorMsg.textContent = "Mã cấp quyền không chính xác. Vui lòng nhập lại!";
+        const input = document.getElementById("passcodeModalInput");
+        input.classList.add("border-rose-500", "ring-2", "ring-rose-500/20");
+        input.focus();
+        showToast("Mã cấp quyền không chính xác!", "error");
+      }
+    };
+
+    // -------------------------------------------------------------------------
+    // 9. FORM THÊM / SỬA HỒ SƠ CHI TIẾT
+    // -------------------------------------------------------------------------
+    window.generateRandomCodeForFormField = function () {
+      const code = generateRandom4Digits();
+      document.getElementById("fieldEditCode").value = code;
+    };
+
+    function populateRecipientSelectInForm(selectedVal = "") {
+      const select = document.getElementById("fieldRecipient");
+      const opts = state.recipients.map(
+        (r) => `<option value="${escapeHTML(r)}" ${r === selectedVal ? "selected" : ""}>${escapeHTML(r)}</option>`
+      );
+      opts.push(`<option value="Đã trả lại" ${selectedVal === "Đã trả lại" ? "selected" : ""}>Đã trả lại</option>`);
+      opts.push(`<option value="__NEW_CUSTOM__" ${selectedVal === "__NEW_CUSTOM__" ? "selected" : ""}>+ Nhập nơi nhận khác...</option>`);
+      select.innerHTML = opts.join("");
+    }
+
+    window.handleRecipientSelectChangeInForm = function (val) {
+      const customDiv = document.getElementById("customRecipientInputContainer");
+      if (val === "__NEW_CUSTOM__") {
+        customDiv.classList.remove("hidden");
+        document.getElementById("fieldCustomRecipient").focus();
+      } else {
+        customDiv.classList.add("hidden");
+      }
+
+      const returnDateField = document.getElementById("fieldReturnDate");
+      if (val === "Đã trả lại" && !returnDateField.value) {
+        returnDateField.value = getTodayLocalISO();
+      }
+    };
+
+    window.openFormModal = function (docId = null) {
+      const modal = document.getElementById("formModal");
+      const title = document.getElementById("formModalTitle");
+      const editDocIdInput = document.getElementById("editDocId");
+      const customDiv = document.getElementById("customRecipientInputContainer");
+      customDiv.classList.add("hidden");
+      document.getElementById("fieldCustomRecipient").value = "";
+
+      if (docId) {
+        const item = state.documents.find((d) => d.id === docId);
+        if (!item) return;
+
+        title.textContent = `Chỉnh sửa hồ sơ: ${item.mhs}`;
+        editDocIdInput.value = item.id;
+        document.getElementById("fieldMhs").value = item.mhs || "";
+        document.getElementById("fieldTitle").value = item.title || "";
+        document.getElementById("fieldSupplier").value = item.supplier || "";
+        document.getElementById("fieldSender").value = item.sender || "";
+        document.getElementById("fieldSentDate").value = item.sentDate || getTodayLocalISO();
+        document.getElementById("fieldDueDate").value = item.dueDate || "";
+        document.getElementById("fieldReturnDate").value = item.returnDate || "";
+        document.getElementById("fieldNote").value = item.note || "";
+        document.getElementById("fieldEditCode").value = item.editCode || generateRandom4Digits();
+
+        // Nơi nhận
+        if (!state.recipients.includes(item.recipient) && item.recipient !== "Đã trả lại") {
+          state.recipients.push(item.recipient);
+          saveLocalRecipients();
+        }
+        populateRecipientSelectInForm(item.recipient);
+      } else {
+        title.textContent = "Thêm hồ sơ trình ký mới";
+        editDocIdInput.value = "";
+        document.getElementById("documentForm").reset();
+        document.getElementById("fieldMhs").value = generateNextMHS();
+        document.getElementById("fieldSentDate").value = getTodayLocalISO();
+        document.getElementById("fieldEditCode").value = generateRandom4Digits();
+        populateRecipientSelectInForm(state.recipients[0] || "GM");
+      }
+
+      modal.classList.remove("hidden");
+      setTimeout(() => document.getElementById("fieldTitle").focus(), 80);
+    };
+
+    window.closeFormModal = function () {
+      document.getElementById("formModal").classList.add("hidden");
+    };
+
+    window.handleFormSubmit = async function (event) {
+      event.preventDefault();
+      const editDocId = document.getElementById("editDocId").value;
+      const mhs = document.getElementById("fieldMhs").value.trim() || generateNextMHS();
+      const title = document.getElementById("fieldTitle").value.trim();
+      const supplier = document.getElementById("fieldSupplier").value.trim();
+      let recipient = document.getElementById("fieldRecipient").value;
+      const sentDate = document.getElementById("fieldSentDate").value || getTodayLocalISO();
+      const sender = document.getElementById("fieldSender").value.trim() || "Chưa rõ";
+      const dueDate = document.getElementById("fieldDueDate").value || "";
+      let returnDate = document.getElementById("fieldReturnDate").value || "";
+      const note = document.getElementById("fieldNote").value.trim();
+      const editCode = document.getElementById("fieldEditCode").value.trim() || generateRandom4Digits();
+
+      // Xử lý nơi nhận mới tùy chỉnh
+      if (recipient === "__NEW_CUSTOM__") {
+        const customName = document.getElementById("fieldCustomRecipient").value.trim();
+        if (!customName) {
+          showToast("Vui lòng nhập tên nơi nhận mới.", "error");
+          document.getElementById("fieldCustomRecipient").focus();
+          return;
+        }
+        recipient = customName;
+        if (!state.recipients.includes(recipient)) {
+          state.recipients.push(recipient);
+          saveLocalRecipients();
+        }
+      }
+
+      if (recipient === "Đã trả lại" && !returnDate) {
+        returnDate = getTodayLocalISO();
+      }
+
+      const payload = {
+        mhs,
+        title,
+        supplier,
+        recipient,
+        sentDate,
+        sender,
+        dueDate,
+        returnDate,
+        note,
+        editCode
+      };
+
+      try {
+        if (editDocId) {
+          const oldDoc = state.documents.find((d) => d.id === editDocId);
+          let history = oldDoc?.history || [];
+          if (oldDoc && oldDoc.recipient !== recipient) {
+            history = [
+              {
+                time: getCurrentTimestampVN(),
+                actor: sender,
+                from: oldDoc.recipient,
+                to: recipient,
+                note: `Chỉnh sửa thông tin hồ sơ (Chuyển sang ${recipient})`
+              },
+              ...history
+            ];
+          }
+          await updateExistingDocument(editDocId, { ...payload, history });
+          showToast(`Đã cập nhật hồ sơ ${mhs}`, "success");
+        } else {
+          payload.history = [
+            {
+              time: getCurrentTimestampVN(),
+              actor: sender,
+              from: "Khởi tạo",
+              to: recipient,
+              note: note || "Tạo mới qua biểu mẫu chi tiết"
+            }
+          ];
+          await saveNewDocument(payload);
+          showToast(`Đã thêm hồ sơ ${mhs} (Mã bảo mật: ${editCode})`, "success");
+        }
+        closeFormModal();
+        if (state.activeDetailId === editDocId) {
+          const fresh = state.documents.find((d) => d.id === editDocId);
+          if (fresh) populateDetailModal(fresh);
+        }
+      } catch (err) {
+        console.error(err);
+        showToast("Không thể lưu dữ liệu hồ sơ. Vui lòng thử lại.", "error");
+      }
+    };
+
+    // -------------------------------------------------------------------------
+    // 10. MODAL CHI TIẾT HỒ SƠ & LỊCH SỬ LUÂN CHUYỂN
+    // -------------------------------------------------------------------------
+    window.openDetailModal = function (docId) {
+      const item = state.documents.find((d) => d.id === docId);
+      if (!item) return;
+      state.activeDetailId = docId;
+      populateDetailModal(item);
+      document.getElementById("detailModal").classList.remove("hidden");
+    };
+
+    window.closeDetailModal = function () {
+      state.activeDetailId = null;
+      document.getElementById("detailModal").classList.add("hidden");
+    };
+
+    function populateDetailModal(item) {
+      document.getElementById("detailMhs").textContent = item.mhs;
+      document.getElementById("detailTitle").textContent = item.title;
+      document.getElementById("detailSupplier").textContent = item.supplier;
+      document.getElementById("detailSender").textContent = item.sender || "—";
+      document.getElementById("detailSentDate").textContent = formatDateVN(item.sentDate) || "—";
+      document.getElementById("detailDueDate").textContent = formatDateVN(item.dueDate) || "— (Không đặt hạn)";
+      document.getElementById("detailReturnDate").textContent = formatDateVN(item.returnDate) || "— (Chưa trả)";
+      document.getElementById("detailNote").textContent = item.note || "Không có lưu ý";
+
+      const st = evaluateDocumentStatus(item);
+      const recipientBadge = document.getElementById("detailRecipientBadge");
+      recipientBadge.className = `px-2.5 py-0.5 rounded-md text-xs font-semibold border ${getRecipientBadgeStyle(item.recipient)}`;
+      recipientBadge.textContent = `Nơi nhận: ${item.recipient}`;
+
+      const deadlineBadge = document.getElementById("detailDeadlineBadge");
+      deadlineBadge.className = `px-2.5 py-0.5 rounded-md text-xs border ${st.badgeClass}`;
+      deadlineBadge.textContent = st.label;
+
+      const securityBadge = document.getElementById("detailSecurityBadge");
+      if (item.editCode) {
+        securityBadge.className = "px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold bg-amber-100 text-amber-800 border border-amber-300";
+        securityBadge.innerHTML = `🔒 Có mã bảo vệ: ••••`;
+      } else {
+        securityBadge.className = "px-2 py-0.5 rounded-md text-[11px] bg-slate-100 text-slate-500 border border-slate-200";
+        securityBadge.textContent = "Chưa đặt mã";
+      }
+
+      // Tạo các nút chuyển nơi nhận nhanh
+      const stageButtonsContainer = document.getElementById("detailStageButtons");
+      stageButtonsContainer.innerHTML = state.recipients
+        .map((dept) => {
+          const isCurrent = item.recipient === dept;
+          const bg = isCurrent
+            ? "bg-emerald-700 text-white font-bold ring-2 ring-emerald-600 shadow-xs"
+            : "bg-white hover:bg-emerald-50 text-slate-700 border border-slate-200 hover:border-emerald-300";
+
+          return `
+            <button
+              type="button"
+              onclick="handoffFromDetail('${escapeHTML(dept)}')"
+              class="px-2 py-1.5 rounded-lg text-xs font-semibold transition text-center truncate ${bg}"
+              title="Chuyển sang ${escapeHTML(dept)}"
+            >
+              ${escapeHTML(dept)} ${isCurrent ? "✓" : ""}
+            </button>
+          `;
+        })
+        .join("");
+
+      // Lịch sử luân chuyển
+      const historyList = document.getElementById("detailHistoryList");
+      const history = item.history || [];
+      if (history.length === 0) {
+        historyList.innerHTML = `<p class="text-xs text-slate-400 italic">Chưa có lịch sử luân chuyển</p>`;
+      } else {
+        historyList.innerHTML = history
+          .map((h, i) => `
+            <div class="relative pb-2 last:pb-0 text-xs">
+              <span class="absolute -left-[19px] top-1 w-2.5 h-2.5 rounded-full ${i === 0 ? "bg-emerald-600 ring-4 ring-emerald-100" : "bg-slate-300"}"></span>
+              <div class="flex flex-wrap items-center justify-between gap-1">
+                <span class="font-bold text-slate-800">${escapeHTML(h.from)} → <span class="text-emerald-700">${escapeHTML(h.to)}</span></span>
+                <span class="text-[11px] text-slate-400 tabular-nums">${escapeHTML(h.time)}</span>
+              </div>
+              <p class="text-[11px] text-slate-500 mt-0.5">Người thao tác: <span class="font-medium text-slate-700">${escapeHTML(h.actor || "—")}</span></p>
+              ${h.note ? `<p class="text-[11px] text-slate-600 italic bg-slate-50 p-1 rounded mt-1">${escapeHTML(h.note)}</p>` : ""}
+            </div>
+          `)
+          .join("");
+      }
+    }
+
+    window.handoffFromDetail = async function (targetStage) {
+      if (!state.activeDetailId) return;
+      const docItem = state.documents.find((d) => d.id === state.activeDetailId);
+      if (!docItem || docItem.recipient === targetStage) return;
+
+      const actor = document.getElementById("handoffActorInput").value.trim() || docItem.sender || "Người dùng";
+      const note = document.getElementById("handoffNoteInput").value.trim() || `Chuyển sang ${targetStage}`;
+
+      const historyEntry = {
+        time: getCurrentTimestampVN(),
+        actor,
+        from: docItem.recipient,
+        to: targetStage,
+        note
+      };
+
+      const updates = {
+        recipient: targetStage,
+        history: [historyEntry, ...(docItem.history || [])]
+      };
+
+      if (targetStage === "Đã trả lại") {
+        updates.returnDate = getTodayLocalISO();
+      }
+
+      try {
+        await updateExistingDocument(docItem.id, updates);
+        document.getElementById("handoffNoteInput").value = "";
+        const refreshed = state.documents.find((d) => d.id === docItem.id);
+        if (refreshed) populateDetailModal(refreshed);
+        showToast(`Đã chuyển hồ sơ ${docItem.mhs} sang ${targetStage}`, "success");
+      } catch (err) {
+        console.error(err);
+        showToast("Không thể cập nhật nơi nhận.", "error");
+      }
+    };
+
+    window.quickCompleteCurrentDetail = async function () {
+      await handoffFromDetail("Đã trả lại");
+    };
+
+    window.editFromDetailModalWithAuth = function () {
+      if (!state.activeDetailId) return;
+      const docId = state.activeDetailId;
+      closeDetailModal();
+      requestEditDocumentWithAuth(docId);
+    };
+
+    window.promptDeleteCurrentDetailWithAuth = function () {
+      if (!state.activeDetailId) return;
+      const docId = state.activeDetailId;
+      closeDetailModal();
+      requestDeleteDocumentWithAuth(docId);
+    };
+
+    // -------------------------------------------------------------------------
+    // 11. XÓA HỒ SƠ
+    // -------------------------------------------------------------------------
+    window.promptDeleteDocument = function (docId) {
+      const item = state.documents.find((d) => d.id === docId);
+      if (!item) return;
+      state.deleteTargetDocId = docId;
+      document.getElementById("confirmDeleteTitle").textContent = `Xóa hồ sơ ${item.mhs}?`;
+      document.getElementById("confirmDeleteMessage").textContent = `Hành động này sẽ xóa vĩnh viễn hồ sơ "${item.title}" và toàn bộ lịch sử luân chuyển.`;
+      document.getElementById("confirmDeleteModal").classList.remove("hidden");
+    };
+
+    window.closeDeleteModal = function () {
+      state.deleteTargetDocId = null;
+      document.getElementById("confirmDeleteModal").classList.add("hidden");
+    };
+
+    window.executeConfirmedDelete = async function () {
+      if (!state.deleteTargetDocId) return;
+      const docId = state.deleteTargetDocId;
+      try {
+        await removeDocumentById(docId);
+        showToast("Đã xóa hồ sơ khỏi sổ theo dõi", "info");
+      } catch (err) {
+        console.error(err);
+        showToast("Không thể xóa hồ sơ. Vui lòng thử lại.", "error");
+      } finally {
+        closeDeleteModal();
+      }
+    };
+
+    // -------------------------------------------------------------------------
+    // 12. QUẢN LÝ DANH SÁCH NƠI NHẬN
+    // -------------------------------------------------------------------------
+    window.openRecipientManagerModal = function () {
+      renderRecipientManagerList();
+      document.getElementById("newRecipientInput").value = "";
+      document.getElementById("recipientManagerModal").classList.remove("hidden");
+      setTimeout(() => document.getElementById("newRecipientInput").focus(), 80);
+    };
+
+    window.closeRecipientManagerModal = function () {
+      document.getElementById("recipientManagerModal").classList.add("hidden");
+      renderAll();
+    };
+
+    function renderRecipientManagerList() {
+      document.getElementById("recipientCountLabel").textContent = state.recipients.length;
+      const container = document.getElementById("recipientListBadges");
+
+      container.innerHTML = state.recipients
+        .map((r) => {
+          const inUse = state.documents.some((d) => d.recipient === r);
+          const style = getRecipientBadgeStyle(r);
+          return `
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs border font-semibold ${style}">
+              <span>${escapeHTML(r)}</span>
+              ${
+                !inUse
+                  ? `<button type="button" onclick="removeRecipient('${escapeHTML(r)}')" class="hover:text-rose-700 text-[11px] font-bold" title="Xóa nơi nhận">` +
+                    "✕" +
+                    "</button>"
+                  : '<span class="text-[10px] opacity-60" title="Đang có hồ sơ sử dụng">●</span>'
+              }
+            </span>
+          `;
+        })
+        .join("");
+    }
+
+    window.handleAddNewRecipientFromManager = function () {
+      const input = document.getElementById("newRecipientInput");
+      const val = (input.value || "").trim();
+      if (!val) {
+        showToast("Vui lòng nhập tên nơi nhận mới.", "error");
+        input.focus();
+        return;
+      }
+      if (state.recipients.includes(val) || val === "Đã trả lại") {
+        showToast("Nơi nhận này đã tồn tại trong danh sách.", "warning");
+        input.focus();
+        return;
+      }
+
+      state.recipients.push(val);
+      saveLocalRecipients();
+      input.value = "";
+      renderRecipientManagerList();
+      showToast(`Đã thêm nơi nhận: "${val}"`, "success");
+    };
+
+    window.removeRecipient = function (recName) {
+      const inUse = state.documents.some((d) => d.recipient === recName);
+      if (inUse) {
+        showToast("Không thể xóa nơi nhận đang có hồ sơ sử dụng.", "error");
+        return;
+      }
+      state.recipients = state.recipients.filter((r) => r !== recName);
+      saveLocalRecipients();
+      renderRecipientManagerList();
+      showToast(`Đã xóa nơi nhận "${recName}"`, "info");
+    };
+
+    // -------------------------------------------------------------------------
+    // 13. XUẤT EXCEL (.XLSX)
+    // -------------------------------------------------------------------------
+    function ensureSheetJSReady() {
+      if (typeof XLSX === "undefined") {
+        showToast("Thư viện SheetJS chưa sẵn sàng. Vui lòng thử lại sau 2 giây.", "error");
+        return false;
+      }
+      return true;
+    }
+
+    function autoFitColumns(ws, rowsAOA) {
+      const colWidths = [];
+      rowsAOA.forEach((row) => {
+        row.forEach((cell, colIdx) => {
+          const cellStr = cell !== null && cell !== undefined ? String(cell) : "";
+          const len = cellStr.length;
+          colWidths[colIdx] = Math.max(colWidths[colIdx] || 10, Math.min(len + 4, 45));
+        });
+      });
+      ws["!cols"] = colWidths.map((w) => ({ wch: w }));
+    }
+
+    window.handleExportExcelClick = function () {
+      const filtered = getProcessedDocuments();
+      document.getElementById("exportFilteredSubtext").textContent = `${filtered.length} hồ sơ đang lọc trên bảng`;
+      document.getElementById("exportAllSubtext").textContent = `${state.documents.length} hồ sơ tổng cộng trong sổ`;
+      document.getElementById("exportModal").classList.remove("hidden");
+    };
+
+    window.closeExportModal = function () {
+      document.getElementById("exportModal").classList.add("hidden");
+    };
+
+    window.exportToXLSX = function (scope = "filtered") {
+      if (!ensureSheetJSReady()) return;
+
+      const sourceDocs = scope === "filtered" ? getProcessedDocuments() : state.documents;
+      if (sourceDocs.length === 0) {
+        showToast("Không có dữ liệu để xuất file Excel.", "warning");
+        closeExportModal();
+        return;
+      }
+
+      try {
+        const wb = XLSX.utils.book_new();
+
+        // SHEET 1: Theo_doi_ho_so
+        const sheet1Headers = [
+          "STT",
+          "MHS",
+          "Tên hồ sơ / Nội dung chứng từ",
+          "Nhà cung cấp",
+          "Nơi/người nhận hiện tại",
+          "Ngày gửi",
+          "Người gửi",
+          "Ngày trả lại",
+          "Ngày hạn",
+          "Trạng thái",
+          "Lưu ý",
+          "Mã bảo vệ"
+        ];
+
+        const sheet1Data = [sheet1Headers];
+        sourceDocs.forEach((item, idx) => {
+          const st = evaluateDocumentStatus(item);
+          sheet1Data.push([
+            idx + 1,
+            item.mhs || "",
+            item.title || "",
+            item.supplier || "",
+            item.recipient || "",
+            formatDateVN(item.sentDate) || "",
+            item.sender || "",
+            formatDateVN(item.returnDate) || "",
+            formatDateVN(item.dueDate) || "",
+            st.label || "",
+            item.note || "",
+            item.editCode || ""
+          ]);
+        });
+
+        const ws1 = XLSX.utils.aoa_to_sheet(sheet1Data);
+        autoFitColumns(ws1, sheet1Data);
+        XLSX.utils.book_append_sheet(wb, ws1, "Theo_doi_ho_so");
+
+        // SHEET 2: Lich_su_luan_chuyen
+        const sheet2Headers = [
+          "STT",
+          "MHS",
+          "Tên hồ sơ",
+          "Thời điểm luân chuyển",
+          "Người thực hiện",
+          "Từ nơi nhận",
+          "Đến nơi nhận",
+          "Ghi chú chuyển bước"
+        ];
+        const sheet2Data = [sheet2Headers];
+        let hCount = 0;
+        sourceDocs.forEach((item) => {
+          (item.history || []).forEach((h) => {
+            hCount++;
+            sheet2Data.push([
+              hCount,
+              item.mhs || "",
+              item.title || "",
+              h.time || "",
+              h.actor || "",
+              h.from || "",
+              h.to || "",
+              h.note || ""
+            ]);
+          });
+        });
+
+        const ws2 = XLSX.utils.aoa_to_sheet(sheet2Data);
+        autoFitColumns(ws2, sheet2Data);
+        XLSX.utils.book_append_sheet(wb, ws2, "Lich_su_luan_chuyen");
+
+        const fileName = `So_Theo_Doi_Ho_So_${getTodayLocalISO()}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        closeExportModal();
+        showToast(`Đã xuất file ${fileName} thành công!`, "success");
+      } catch (err) {
+        console.error("Lỗi xuất Excel:", err);
+        showToast("Không thể tạo file Excel. Vui lòng thử lại.", "error");
+      }
+    };
+
+    window.downloadTemplateXLSX = function () {
+      if (!ensureSheetJSReady()) return;
+      try {
+        const wb = XLSX.utils.book_new();
+        const headers = [
+          "STT",
+          "MHS",
+          "Tên hồ sơ",
+          "Nhà cung cấp",
+          "Nơi/người nhận",
+          "Ngày gửi (dd/mm/yyyy)",
+          "Người gửi",
+          "Ngày trả lại (dd/mm/yyyy)",
+          "Ngày hạn (dd/mm/yyyy)",
+          "Lưu ý",
+          "Mã bảo vệ"
+        ];
+        const rows = [
+          headers,
+          [1, "HS-723", "HĐ Dịch vụ bảo trì thang máy", "KONE", "GM", "01/11/2026", "A. Huy", "", "15/11/2026", "Gấp trước ngày 15", "1234"],
+          [2, "HS-724", "ĐNTT Chi phí điện chiếu sáng T10", "EVN HANOI", "FN", "02/11/2026", "C. Hồng", "04/11/2026", "", "Đã duyệt thanh toán", "1234"]
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        autoFitColumns(ws, rows);
+        XLSX.utils.book_append_sheet(wb, ws, "Mau_Nhap_Ho_So");
+        XLSX.writeFile(wb, "Template_Nhap_Ho_So_Trinh_Ky.xlsx");
+        showToast("Đã tải xuống file template mẫu (.xlsx)", "success");
+      } catch (err) {
+        console.error(err);
+        showToast("Không thể tạo file template.", "error");
+      }
+    };
+
+    // -------------------------------------------------------------------------
+    // 14. NHẬP EXCEL (.XLSX)
+    // -------------------------------------------------------------------------
+    function parseFlexibleExcelDate(rawVal) {
+      if (!rawVal) return "";
+      if (rawVal instanceof Date) {
+        const y = rawVal.getFullYear();
+        const m = String(rawVal.getMonth() + 1).padStart(2, "0");
+        const d = String(rawVal.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      }
+      if (typeof rawVal === "number") {
+        const dateObj = new Date(Math.round((rawVal - 25569) * 86400 * 1000));
+        const y = dateObj.getUTCFullYear();
+        const m = String(dateObj.getUTCMonth() + 1).padStart(2, "0");
+        const d = String(dateObj.getUTCDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      }
+      const str = String(rawVal).trim();
+      if (!str) return "";
+      if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+      const partsSlash = str.split("/");
+      if (partsSlash.length === 3) {
+        const d = partsSlash[0].padStart(2, "0");
+        const m = partsSlash[1].padStart(2, "0");
+        const y = partsSlash[2].length === 2 ? `20${partsSlash[2]}` : partsSlash[2];
+        return `${y}-${m}-${d}`;
+      }
+      return "";
+    }
+
+    window.openImportModal = function () {
+      resetImportPreview();
+      document.getElementById("importModal").classList.remove("hidden");
+    };
+
+    window.closeImportModal = function () {
+      document.getElementById("importModal").classList.add("hidden");
+    };
+
+    window.resetImportPreview = function () {
+      state.parsedImportRows = [];
+      document.getElementById("excelFileInput").value = "";
+      document.getElementById("importPreviewContainer").classList.add("hidden");
+      document.getElementById("btnAppendImport").disabled = true;
+      document.getElementById("btnReplaceImport").disabled = true;
+    };
+
+    window.handleImportDragOver = function (event) {
+      event.preventDefault();
+      document.getElementById("dropZone").classList.add("border-emerald-500", "bg-emerald-50/60");
+    };
+
+    window.handleImportDragLeave = function (event) {
+      event.preventDefault();
+      document.getElementById("dropZone").classList.remove("border-emerald-500", "bg-emerald-50/60");
+    };
+
+    window.handleImportDrop = function (event) {
+      event.preventDefault();
+      document.getElementById("dropZone").classList.remove("border-emerald-500", "bg-emerald-50/60");
+      if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
+        processExcelFile(event.dataTransfer.files[0]);
+      }
+    };
+
+    window.handleExcelFileSelected = function (event) {
+      if (event.target.files && event.target.files.length > 0) {
+        processExcelFile(event.target.files[0]);
+      }
+    };
+
+    function processExcelFile(file) {
+      if (!ensureSheetJSReady()) return;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: "array", cellDates: true });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+
+          if (!rawRows || rawRows.length < 2) {
+            showToast("File Excel trống hoặc không có dòng dữ liệu.", "error");
+            return;
+          }
+
+          let headerRowIndex = 0;
+          for (let i = 0; i < Math.min(rawRows.length, 5); i++) {
+            const rowStr = rawRows[i].map((c) => String(c).toLowerCase()).join(" ");
+            if (rowStr.includes("mhs") || rowStr.includes("tên") || rowStr.includes("nhà cung cấp") || rowStr.includes("nơi nhận")) {
+              headerRowIndex = i;
+              break;
+            }
+          }
+
+          const headerRow = rawRows[headerRowIndex].map((h) => removeVietnameseTones(String(h)));
+          const colMhs = headerRow.findIndex((h) => h.includes("mhs") || h.includes("ma ho so"));
+          const colTitle = headerRow.findIndex((h) => h.includes("ten") || h.includes("noi dung"));
+          const colSupplier = headerRow.findIndex((h) => h.includes("nha cung cap") || h.includes("ncc"));
+          const colRecipient = headerRow.findIndex((h) => h.includes("noi") || h.includes("nguoi nhan") || h.includes("bo phan"));
+          const colSentDate = headerRow.findIndex((h) => h.includes("ngay gui") || h.includes("ngay chuyen"));
+          const colSender = headerRow.findIndex((h) => h.includes("nguoi gui"));
+          const colReturnDate = headerRow.findIndex((h) => h.includes("ngay tra") || h.includes("tra lai"));
+          const colDueDate = headerRow.findIndex((h) => h.includes("ngay han") || h.includes("han"));
+          const colNote = headerRow.findIndex((h) => h.includes("luu y") || h.includes("ghi chu"));
+          const colCode = headerRow.findIndex((h) => h.includes("ma bao ve") || h.includes("passcode") || h.includes("ma pin"));
+
+          const parsed = [];
+          for (let r = headerRowIndex + 1; r < rawRows.length; r++) {
+            const row = rawRows[r];
+            if (!row || row.every((c) => String(c).trim() === "")) continue;
+
+            const mhsRaw = colMhs !== -1 ? String(row[colMhs]).trim() : "";
+            const titleRaw = colTitle !== -1 ? String(row[colTitle]).trim() : "";
+            const supplierRaw = colSupplier !== -1 ? String(row[colSupplier]).trim() : "";
+            const recipientRaw = colRecipient !== -1 ? String(row[colRecipient]).trim() : "";
+            const senderRaw = colSender !== -1 ? String(row[colSender]).trim() : "";
+            const noteRaw = colNote !== -1 ? String(row[colNote]).trim() : "";
+            const codeRaw = colCode !== -1 ? String(row[colCode]).trim() : "";
+
+            const sentDate = parseFlexibleExcelDate(colSentDate !== -1 ? row[colSentDate] : "") || getTodayLocalISO();
+            const returnDate = parseFlexibleExcelDate(colReturnDate !== -1 ? row[colReturnDate] : "");
+            const dueDate = parseFlexibleExcelDate(colDueDate !== -1 ? row[colDueDate] : "");
+
+            if (!titleRaw && !mhsRaw) continue;
+
+            let recipient = recipientRaw || (returnDate ? "Đã trả lại" : state.recipients[0] || "GM");
+            if (!state.recipients.includes(recipient) && recipient !== "Đã trả lại") {
+              state.recipients.push(recipient);
+              saveLocalRecipients();
+            }
+
+            parsed.push({
+              mhs: mhsRaw || generateNextMHS(),
+              title: titleRaw || "Hồ sơ nhập từ Excel",
+              supplier: supplierRaw || "—",
+              recipient,
+              sentDate,
+              sender: senderRaw || "Excel Import",
+              returnDate,
+              dueDate,
+              note: noteRaw,
+              editCode: codeRaw || generateRandom4Digits(),
+              history: [
+                {
+                  time: getCurrentTimestampVN(),
+                  actor: "Excel Import",
+                  from: "Khởi tạo",
+                  to: recipient,
+                  note: "Nhập tự động từ file Excel"
+                }
+              ]
+            });
+          }
+
+          if (parsed.length === 0) {
+            showToast("Không tìm thấy dòng dữ liệu hợp lệ trong file Excel.", "error");
+            return;
+          }
+
+          state.parsedImportRows = parsed;
+          document.getElementById("previewCountBadge").textContent = `${parsed.length} dòng hợp lệ`;
+          const tbody = document.getElementById("importPreviewTableBody");
+          tbody.innerHTML = parsed
+            .slice(0, 8)
+            .map(
+              (p) => `
+                <tr class="hover:bg-slate-50">
+                  <td class="p-2 border font-mono font-bold text-slate-800">${escapeHTML(p.mhs)}</td>
+                  <td class="p-2 border font-medium text-slate-900">${escapeHTML(p.title)}</td>
+                  <td class="p-2 border text-slate-600">${escapeHTML(p.supplier)}</td>
+                  <td class="p-2 border">${escapeHTML(p.recipient)}</td>
+                  <td class="p-2 border">${formatDateVN(p.sentDate)}</td>
+                  <td class="p-2 border">${escapeHTML(p.sender)}</td>
+                  <td class="p-2 border">${formatDateVN(p.dueDate) || "—"}</td>
+                </tr>
+              `
+            )
+            .join("");
+
+          document.getElementById("importPreviewContainer").classList.remove("hidden");
+          document.getElementById("btnAppendImport").disabled = false;
+          document.getElementById("btnReplaceImport").disabled = false;
+          showToast(`Đã đọc thành công ${parsed.length} hồ sơ từ file Excel`, "success");
+        } catch (err) {
+          console.error("Lỗi đọc Excel:", err);
+          showToast("Lỗi khi đọc file Excel. Vui lòng kiểm tra định dạng.", "error");
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    window.executeExcelImport = async function (mode = "append") {
+      const records = state.parsedImportRows;
+      if (!records || records.length === 0) return;
+
+      const btnAppend = document.getElementById("btnAppendImport");
+      const btnReplace = document.getElementById("btnReplaceImport");
+      btnAppend.disabled = true;
+      btnReplace.disabled = true;
+      btnAppend.textContent = "Đang lưu...";
+
+      try {
+        if (mode === "replace") {
+          const toDelete = [...state.documents];
+          for (const d of toDelete) {
+            await removeDocumentById(d.id);
+          }
+        }
+
+        for (const rec of records) {
+          await saveNewDocument(rec);
+        }
+
+        const count = records.length;
+        closeImportModal();
+        showToast(
+          mode === "replace"
+            ? `Đã thay thế sổ bằng ${count} hồ sơ từ Excel`
+            : `Đã gộp thêm ${count} hồ sơ từ Excel vào sổ`,
+          "success"
+        );
+      } catch (err) {
+        console.error("Lỗi nhập Excel:", err);
+        showToast("Có lỗi xảy ra khi lưu dữ liệu từ Excel.", "error");
+      } finally {
+        btnAppend.disabled = false;
+        btnReplace.disabled = false;
+        btnAppend.textContent = "+ Gộp thêm vào sổ";
+      }
+    };
+
+    // -------------------------------------------------------------------------
+    // 15. KHỞI CHẠY ỨNG DỤNG
+    // -------------------------------------------------------------------------
+    window.addEventListener("DOMContentLoaded", () => {
+      const now = new Date();
+      const weekdays = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+      const dateEl = document.getElementById("todayDateLabel");
+      if (dateEl) {
+        dateEl.textContent = `${weekdays[now.getDay()]}, ${formatDateVN(getTodayLocalISO())}`;
+      }
+      initDataLayer();
+    });
+  </script>
+</body>
+</html>

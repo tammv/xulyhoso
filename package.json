@@ -1,0 +1,19 @@
+{
+  "name": "he-thong-theo-doi-ho-so-trinh-ky",
+  "version": "1.1.0",
+  "description": "Hệ thống Theo dõi Hồ sơ - Chứng từ Trình ký (Bảo mật theo mã hồ sơ & Tùy biến Nơi nhận)",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve ."
+  },
+  "keywords": [
+    "signing",
+    "tracker",
+    "ledger",
+    "excel",
+    "firestore",
+    "vercel"
+  ],
+  "author": "",
+  "license": "MIT"
+}
