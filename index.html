@@ -289,9 +289,9 @@
       </div>
 
       <div id="emptyStateBox" class="hidden py-12 px-4 text-center bg-white border-t border-slate-200">
-        <p class="text-sm font-semibold text-slate-800">Không tìm thấy hồ sơ nào khớp với điều kiện lọc</p>
-        <p class="text-xs text-slate-500 mt-1">Bạn có thể nhập trực tiếp hồ sơ mới ở dòng màu vàng phía trên hoặc đặt lại bộ lọc.</p>
-        <button type="button" onclick="resetAllFilters()" class="mt-3 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition">
+        <p class="text-sm font-semibold text-slate-800" id="emptyStateTitle">Sổ theo dõi chưa có dữ liệu hồ sơ nào</p>
+        <p class="text-xs text-slate-500 mt-1" id="emptyStateDesc">Bạn có thể nhập nhanh ở dòng màu vàng (+Mới) phía trên, bấm nút '+ Thêm hồ sơ', hoặc tải lên từ file Excel (.xlsx).</p>
+        <button type="button" id="emptyStateResetBtn" onclick="resetAllFilters()" class="mt-3 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition">
           Hiển thị toàn bộ hồ sơ
         </button>
       </div>
@@ -792,93 +792,10 @@
       return BADGE_COLOR_PALETTE[Math.abs(hash) % BADGE_COLOR_PALETTE.length];
     }
 
-    // 5 hồ sơ mẫu thực tế (kèm mã cấp quyền chỉnh sửa mặc định: 1234)
-    const SEED_DOCUMENTS = [
-      {
-        seedId: "seed-HS-713",
-        mhs: "HS-713",
-        title: "4 HĐMBHH,DV",
-        supplier: "ĐIỆN CAO THẾ",
-        recipient: "Đã trả lại",
-        sentDate: "2026-11-03",
-        sender: "A. Huy",
-        returnDate: "2026-11-05",
-        dueDate: "2026-11-07",
-        note: "",
-        editCode: "1234",
-        history: [
-          { time: "2026-11-05 15:10", actor: "A. Huy", from: "GM", to: "Đã trả lại", note: "GM đã ký duyệt, hoàn tất trả hồ sơ" },
-          { time: "2026-11-03 08:30", actor: "A. Huy", from: "Khởi tạo", to: "GM", note: "Trình ký GM" }
-        ]
-      },
-      {
-        seedId: "seed-HS-715",
-        mhs: "HS-715",
-        title: "4 HĐK 0110/26K/MFD-TA + 3CK",
-        supplier: "Trâm Anh",
-        recipient: "Đã trả lại",
-        sentDate: "2026-11-03",
-        sender: "C. Khánh",
-        returnDate: "2026-11-12",
-        dueDate: "2026-11-12",
-        note: "",
-        editCode: "1234",
-        history: [
-          { time: "2026-11-12 14:20", actor: "C. Khánh", from: "OR c Thủ", to: "Đã trả lại", note: "Hoàn tất đúng hạn" },
-          { time: "2026-11-03 09:15", actor: "C. Khánh", from: "Khởi tạo", to: "OR c Thủ", note: "Trình ký HĐK kèm 3 cam kết" }
-        ]
-      },
-      {
-        seedId: "seed-HS-720",
-        mhs: "HS-720",
-        title: "4 HDDMBHH,DV 021126/HDMBDC/MFD-TN",
-        supplier: "TUỆ NGHI",
-        recipient: "GM",
-        sentDate: "2026-11-05",
-        sender: "C. Hồng",
-        returnDate: "",
-        dueDate: "2026-11-18",
-        note: "Chờ GM ký duyệt",
-        editCode: "1234",
-        history: [
-          { time: "2026-11-05 14:00", actor: "C. Hồng", from: "Khởi tạo", to: "GM", note: "Chờ GM ký duyệt" }
-        ]
-      },
-      {
-        seedId: "seed-HS-721",
-        mhs: "HS-721",
-        title: "2 PLHĐ Bảo trì 01-DN14.2186-10/BTTT26",
-        supplier: "Pacific",
-        recipient: "GM",
-        sentDate: "2026-11-06",
-        sender: "A. Huy",
-        returnDate: "",
-        dueDate: "",
-        note: "",
-        editCode: "1234",
-        history: [
-          { time: "2026-11-06 08:45", actor: "A. Huy", from: "Khởi tạo", to: "GM", note: "Chuyển GM ký phụ lục bảo trì" }
-        ]
-      },
-      {
-        seedId: "seed-HS-722",
-        mhs: "HS-722",
-        title: "4 HĐK + 3 CK 01012026/CTT-LP",
-        supplier: "Châu Thanh Thảo",
-        recipient: "OR c Thủ",
-        sentDate: "2026-11-16",
-        sender: "C. Khánh",
-        returnDate: "",
-        dueDate: "",
-        note: "",
-        editCode: "1234",
-        history: [
-          { time: "2026-11-16 09:30", actor: "C. Khánh", from: "Khởi tạo", to: "OR c Thủ", note: "Chuyển OR c Thủ kiểm tra & trình ký" }
-        ]
-      }
-    ];
+    // Khởi tạo sổ trống hoàn toàn không có dữ liệu mẫu
+    const SEED_DOCUMENTS = [];
 
-    const LOCAL_STORAGE_KEY = "signing_documents_store_v2";
+    const LOCAL_STORAGE_KEY = "signing_documents_store_v3";
     const RECIPIENTS_STORAGE_KEY = "signing_recipients_store_v2";
 
     // -------------------------------------------------------------------------
@@ -1141,11 +1058,6 @@
         onSnapshot(
           collectionRef,
           async (snapshot) => {
-            if (snapshot.empty && !state.hasSeededOnce) {
-              state.hasSeededOnce = true;
-              await seedInitialDocuments();
-              return;
-            }
             state.hasSeededOnce = true;
             state.documents = snapshot.docs.map((docSnap) => ({
               id: docSnap.id,
@@ -1184,14 +1096,7 @@
         console.warn("Lỗi đọc dữ liệu từ localStorage:", err);
       }
 
-      if (state.documents.length === 0) {
-        state.documents = SEED_DOCUMENTS.map((item) => ({
-          ...item,
-          id: item.seedId,
-          createdAt: Date.now()
-        }));
-        saveLocalDocuments();
-      }
+      // Để sổ trống tự nhiên nếu chưa có dữ liệu
       renderAll();
     }
 
@@ -1501,6 +1406,19 @@
       if (rows.length === 0) {
         tbody.innerHTML = "";
         emptyBox.classList.remove("hidden");
+        const emptyTitle = document.getElementById("emptyStateTitle");
+        const emptyDesc = document.getElementById("emptyStateDesc");
+        const resetBtn = document.getElementById("emptyStateResetBtn");
+
+        if (state.documents.length === 0) {
+          if (emptyTitle) emptyTitle.textContent = "Sổ theo dõi chưa có dữ liệu hồ sơ nào";
+          if (emptyDesc) emptyDesc.textContent = "Bạn có thể nhập nhanh ở dòng màu vàng (+Mới) phía trên, bấm nút '+ Thêm hồ sơ', hoặc tải lên từ file Excel (.xlsx).";
+          if (resetBtn) resetBtn.classList.add("hidden");
+        } else {
+          if (emptyTitle) emptyTitle.textContent = "Không tìm thấy hồ sơ nào khớp với điều kiện lọc";
+          if (emptyDesc) emptyDesc.textContent = "Bạn có thể nhập trực tiếp hồ sơ mới ở dòng màu vàng phía trên hoặc bấm 'Đặt lại' bộ lọc.";
+          if (resetBtn) resetBtn.classList.remove("hidden");
+        }
         return;
       }
       emptyBox.classList.add("hidden");
