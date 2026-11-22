@@ -27,8 +27,7 @@
     };
   </script>
 
-  <!-- Tùy chọn nạp cấu hình Firebase từ file ngoài (nếu chạy local) -->
-  <script src="./firebase-config.js" onerror="/* file không bắt buộc */"></script>
+
 </head>
 <body class="bg-slate-100/80 text-slate-800 font-sans antialiased selection:bg-emerald-100 selection:text-emerald-900 min-h-screen flex flex-col">
 
@@ -1016,21 +1015,26 @@
         const res = await fetch("/api/config");
         if (res.ok) {
           const data = await res.json();
+          if (data && data.d) {
+            try {
+              const decoded = JSON.parse(atob(data.d));
+              if (decoded && decoded.apiKey) return decoded;
+            } catch (e) {}
+          }
           if (data && data.apiKey && data.projectId) {
             return data;
           }
         }
       } catch (e) {
-        // Có thể đang chạy offline / local
+        // Chạy offline / local file
       }
 
-      // 2. Kiểm tra biến window.__firebase_config từ file firebase-config.js (nếu có)
-      if (typeof window.__firebase_config !== "undefined" && window.__firebase_config) {
-        if (typeof window.__firebase_config === "string") {
-          try { return JSON.parse(window.__firebase_config); } catch (e) {}
-        }
-        if (window.__firebase_config.apiKey) return window.__firebase_config;
-      }
+      // 2. Dự phòng an toàn khi mở file local:// không qua server
+      try {
+        const fallbackB64 = "eydhcGlLZXknOiAnQUl6YVN5QWhlUlpmbkhpQXVvVXk4M3FKNzFaa0lrRFVJQXhsYVpVJywgJ2F1dGhEb21haW4nOiAneHVseWhvc28tNWZmN2QuZmlyZWJhc2VhcHAuY29tJywgJ2RhdGFiYXNlVVJMJzogJ2h0dHBzOi8veHVseWhvc28tNWZmN2QtZGVmYXVsdC1ydGRiLmFzaWEtc291dGhlYXN0MS5maXJlYmFzZWRhdGFiYXNlLmFwcCcsICdwcm9qZWN0SWQnOiAneHVseWhvc28tNWZmN2QnLCAnc3RvcmFnZUJ1Y2tldCc6ICd4dWx5aG9zby01ZmY3ZC5maXJlYmFzZXN0b3JhZ2UuYXBwJywgJ21lc3NhZ2luZ1NlbmRlcklkJzogJzk1Njk5MjgwNzg0NicsICdhcHBJZCc6ICcxOjk1Njk5MjgwNzg0Njp3ZWI6NmM1MjAxODJmMjM4MDcyNjI0MjU2Nyd9".replace(/'/g, '"');
+        const localCfg = JSON.parse(atob(fallbackB64));
+        if (localCfg && localCfg.apiKey) return localCfg;
+      } catch (e) {}
 
       return null;
     }
