@@ -313,29 +313,28 @@
       <form id="documentForm" onsubmit="handleFormSubmit(event)" class="p-5 space-y-3.5">
         <input type="hidden" id="editDocId" />
 
-        <!-- Phần cài đặt Mã cấp quyền chỉnh sửa -->
-        <div class="p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl space-y-1.5">
+        <!-- Phần cài đặt Mã cấp quyền chỉnh sửa (Không bắt buộc) -->
+        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <label for="fieldEditCode" class="block text-xs font-bold text-amber-900 flex items-center gap-1.5">
-                <span>🔒 Mã cấp quyền chỉnh sửa hồ sơ</span>
-                <span class="text-rose-500">*</span>
+              <label for="fieldEditCode" class="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <span>🔒 Mã cấp quyền chỉnh sửa</span>
+                <span class="text-[11px] font-normal text-slate-500">(Không bắt buộc)</span>
               </label>
-              <p class="text-[11px] text-amber-800/80">Chỉ người nhập đúng mã này mới được phép sửa hoặc xóa hồ sơ này.</p>
+              <p class="text-[11px] text-slate-500">Nếu để trống, không yêu cầu mã khi sửa/xóa. Nếu đặt mã, chỉ người biết mã mới được sửa/xóa.</p>
             </div>
-            <div class="flex items-center gap-1.5">
+            <div class="flex items-center gap-1.5 shrink-0">
               <input
                 type="text"
                 id="fieldEditCode"
-                required
-                placeholder="VD: 1234"
-                class="w-32 px-2.5 py-1.5 text-xs font-mono font-bold text-center bg-white border border-amber-300 rounded-lg focus:outline-none focus:border-amber-600"
+                placeholder="Để trống nếu không khóa"
+                class="w-40 px-2.5 py-1.5 text-xs font-mono text-center bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600"
               />
               <button
                 type="button"
                 onclick="generateRandomCodeForFormField()"
-                class="px-2.5 py-1.5 text-xs font-semibold text-amber-900 bg-amber-200/80 hover:bg-amber-300 rounded-lg whitespace-nowrap transition"
-                title="Tạo mã 4 số ngẫu nhiên"
+                class="px-2 py-1.5 text-xs font-semibold text-slate-700 bg-slate-200 hover:bg-slate-300 rounded-lg whitespace-nowrap transition"
+                title="Tạo mã PIN 4 số"
               >
                 🎲 Tạo mã
               </button>
@@ -1135,7 +1134,7 @@
     async function saveNewDocument(payload) {
       const record = {
         ...payload,
-        editCode: payload.editCode || generateRandom4Digits(),
+        editCode: payload.editCode ? String(payload.editCode).trim() : "",
         createdAt: Date.now(),
         updatedAt: Date.now()
       };
@@ -1354,8 +1353,7 @@
       const cellPad = state.rowDensity === "compact" ? "py-1.5 px-2.5 text-xs" : "py-2.5 px-3 text-[13px]";
       const thPad = "py-2 px-2.5 text-[11px] font-bold uppercase tracking-wider border border-emerald-700/60";
       const nextMhsSuggestion = generateNextMHS();
-      const defaultEditCode = generateRandom4Digits();
-      const todayISO = getTodayLocalISO();
+            const todayISO = getTodayLocalISO();
 
       const recipientOptionsHTML = state.recipients.map(
         (opt) => `<option value="${escapeHTML(opt)}" ${opt === "GM" ? "selected" : ""}>${escapeHTML(opt)}</option>`
@@ -1406,12 +1404,7 @@
           <td class="py-1.5 px-1.5 border border-slate-200">
             <input type="date" id="qaDueDate" value="" title="Ngày hạn (không bắt buộc)" class="px-1.5 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" />
           </td>
-          <td class="py-1.5 px-1.5 text-center text-[11px] text-amber-800 font-medium border border-slate-200">
-            <div class="flex items-center justify-center gap-1">
-              <span title="Mã bảo vệ mặc định">🔑</span>
-              <input type="text" id="qaEditCode" value="${defaultEditCode}" title="Mã cấp quyền chỉnh sửa" class="w-14 px-1 py-0.5 text-[11px] font-mono text-center bg-white border border-amber-300 rounded" />
-            </div>
-          </td>
+          <td class="py-1.5 px-1.5 text-center text-[11px] text-slate-400 border border-slate-200 font-medium">Tự động</td>
           <td class="py-1.5 px-1.5 border border-slate-200">
             <input type="text" id="qaNote" class="w-full min-w-[110px] px-2 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="Lưu ý..." />
           </td>
@@ -1496,7 +1489,7 @@
               <td class="${cellPad} text-slate-600 border border-slate-200 whitespace-nowrap tabular-nums">${formatDateVN(item.sentDate) || "—"}</td>
               <td class="${cellPad} text-slate-800 font-medium border border-slate-200 whitespace-nowrap">${escapeHTML(item.sender)}</td>
               <td class="${cellPad} border border-slate-200 whitespace-nowrap tabular-nums ${item.returnDate ? "text-emerald-700 font-semibold" : "text-slate-400"}">${formatDateVN(item.returnDate) || "—"}</td>
-              <td class="${cellPad} border border-slate-200 whitespace-nowrap tabular-nums ${isOverdue ? "text-rose-600 font-bold" : "text-slate-700"}>${formatDateVN(item.dueDate) || "—"}</td>
+              <td class="${cellPad} border border-slate-200 whitespace-nowrap tabular-nums ${isOverdue ? "text-rose-600 font-bold" : "text-slate-700"}">${formatDateVN(item.dueDate) || "—"}</td>
               <td class="${cellPad} border border-slate-200 whitespace-nowrap">
                 <span class="inline-block px-2 py-0.5 rounded text-[11px] border ${st.badgeClass}">${escapeHTML(st.label)}</span>
               </td>
@@ -1623,7 +1616,7 @@
       const sentDate = document.getElementById("qaSentDate")?.value || getTodayLocalISO();
       const sender = (document.getElementById("qaSender")?.value || "").trim() || "Chưa rõ";
       const dueDate = document.getElementById("qaDueDate")?.value || "";
-      const editCode = (document.getElementById("qaEditCode")?.value || "").trim() || generateRandom4Digits();
+      const editCode = "";
       const note = (document.getElementById("qaNote")?.value || "").trim();
 
       if (!title) {
@@ -1656,7 +1649,7 @@
             }
           ]
         });
-        showToast(`Đã thêm hồ sơ ${mhs} vào sổ (Mã bảo mật: ${editCode})`, "success");
+        showToast(`Đã thêm hồ sơ ${mhs} vào sổ thành công`, "success");
       } catch (err) {
         console.error(err);
         showToast("Không thể lưu hồ sơ. Vui lòng thử lại.", "error");
@@ -1856,7 +1849,7 @@
         document.getElementById("documentForm").reset();
         document.getElementById("fieldMhs").value = generateNextMHS();
         document.getElementById("fieldSentDate").value = getTodayLocalISO();
-        document.getElementById("fieldEditCode").value = generateRandom4Digits();
+        document.getElementById("fieldEditCode").value = "";
         populateRecipientSelectInForm(state.recipients[0] || "GM");
       }
 
@@ -1943,7 +1936,11 @@
             }
           ];
           await saveNewDocument(payload);
-          showToast(`Đã thêm hồ sơ ${mhs} (Mã bảo mật: ${editCode})`, "success");
+          if (editCode) {
+            showToast(`Đã thêm hồ sơ ${mhs}. Mã bảo vệ: ${editCode} (Ghi nhớ mã để sửa/xóa)`, "success");
+          } else {
+            showToast(`Đã thêm hồ sơ ${mhs} thành công`, "success");
+          }
         }
         closeFormModal();
         if (state.activeDetailId === editDocId) {
@@ -2261,8 +2258,7 @@
           "Ngày trả lại",
           "Ngày hạn",
           "Trạng thái",
-          "Lưu ý",
-          "Mã bảo vệ"
+          "Lưu ý"
         ];
 
         const sheet1Data = [sheet1Headers];
@@ -2279,8 +2275,7 @@
             formatDateVN(item.returnDate) || "",
             formatDateVN(item.dueDate) || "",
             st.label || "",
-            item.note || "",
-            item.editCode || ""
+            item.note || ""
           ]);
         });
 
@@ -2345,13 +2340,12 @@
           "Người gửi",
           "Ngày trả lại (dd/mm/yyyy)",
           "Ngày hạn (dd/mm/yyyy)",
-          "Lưu ý",
-          "Mã bảo vệ"
+          "Lưu ý"
         ];
         const rows = [
           headers,
-          [1, "HS-723", "HĐ Dịch vụ bảo trì thang máy", "KONE", "GM", "01/11/2026", "A. Huy", "", "15/11/2026", "Gấp trước ngày 15", "1234"],
-          [2, "HS-724", "ĐNTT Chi phí điện chiếu sáng T10", "EVN HANOI", "FN", "02/11/2026", "C. Hồng", "04/11/2026", "", "Đã duyệt thanh toán", "1234"]
+          [1, "HS-723", "HĐ Dịch vụ bảo trì thang máy", "KONE", "GM", "01/11/2026", "A. Huy", "", "15/11/2026", "Gấp trước ngày 15"],
+          [2, "HS-724", "ĐNTT Chi phí điện chiếu sáng T10", "EVN HANOI", "FN", "02/11/2026", "C. Hồng", "04/11/2026", "", "Đã duyệt thanh toán"]
         ];
         const ws = XLSX.utils.aoa_to_sheet(rows);
         autoFitColumns(ws, rows);
