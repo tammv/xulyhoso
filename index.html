@@ -1042,11 +1042,14 @@
         auth = getAuth(app);
         db = getFirestore(app);
 
-        const cred = await signInAnonymously(auth);
-        currentUser = cred.user;
+        try {
+          const cred = await signInAnonymously(auth);
+          currentUser = cred.user;
+        } catch (authErr) {
+          console.warn("Firebase Anonymous Auth chưa bật (vẫn tiếp tục kết nối Firestore):", authErr.message);
+        }
 
-        const appId = typeof __app_id !== "undefined" && __app_id ? __app_id : "default-signing-tracker";
-        collectionRef = collection(db, "artifacts", appId, "public", "data", "signing_documents");
+        collectionRef = collection(db, "signing_documents");
 
         state.isCloudMode = true;
         const badge = document.getElementById("syncStatusBadge");
@@ -1066,17 +1069,34 @@
             renderAll();
           },
           (err) => {
-            console.error("Firestore snapshot error:", err);
-            fallbackToMemoryMode();
+            console.error("Lỗi Firestore:", err);
+            const badge = document.getElementById("syncStatusBadge");
+            if (badge) {
+              if (err.code === "permission-denied") {
+                badge.className = "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-rose-50 text-rose-700 border border-rose-200 transition";
+                badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>Cần mở Rules Firestore (Test mode)';
+                showToast("Quyền truy cập bị từ chối: Cần đặt Rules Firestore là allow read, write: if true;", "error");
+              } else {
+                badge.className = "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-300 transition";
+                badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Cần tạo Firestore Database trên Console';
+                showToast("Chưa tìm thấy Firestore Database: Hãy bấm 'Create database' tại mục Firestore Database trên Firebase Console", "warning");
+              }
+            }
+            fallbackToMemoryMode(false);
           }
         );
       } catch (err) {
-        console.warn("Chuyển sang chế độ lưu trữ Offline:", err);
+        console.warn("Lỗi khởi tạo Firebase:", err);
         fallbackToMemoryMode();
       }
     }
 
-    function fallbackToMemoryMode() {
+    function fallbackToMemoryMode(resetBadge = true) {
+      if (!resetBadge) {
+        state.isCloudMode = false;
+        renderAll();
+        return;
+      }
       state.isCloudMode = false;
       const badge = document.getElementById("syncStatusBadge");
       if (badge) {
@@ -1119,7 +1139,7 @@
         createdAt: Date.now(),
         updatedAt: Date.now()
       };
-      if (state.isCloudMode && currentUser && collectionRef) {
+      if (state.isCloudMode && collectionRef) {
         await addDoc(collectionRef, record);
       } else {
         state.documents = [{ id: "mem-" + crypto.randomUUID(), ...record }, ...state.documents];
@@ -1133,7 +1153,7 @@
         ...updates,
         updatedAt: Date.now()
       };
-      if (state.isCloudMode && currentUser && collectionRef) {
+      if (state.isCloudMode && collectionRef) {
         await updateDoc(doc(collectionRef, docId), recordUpdates);
       } else {
         state.documents = state.documents.map((d) => (d.id === docId ? { ...d, ...recordUpdates } : d));
@@ -1143,7 +1163,7 @@
     }
 
     async function removeDocumentById(docId) {
-      if (state.isCloudMode && currentUser && collectionRef) {
+      if (state.isCloudMode && collectionRef) {
         await deleteDoc(doc(collectionRef, docId));
       } else {
         state.documents = state.documents.filter((d) => d.id !== docId);

@@ -1,22 +1,12 @@
 /**
- * CẤU HÌNH ĐỒNG BỘ ĐÁM MÂY (FIREBASE FIRESTORE)
- * 
- * Cách 1: Bạn có thể điền thông tin dự án Firebase của bạn trực tiếp vào biến dưới đây.
- * Cách 2: Bạn có thể để trống file này và bấm nút "⚙️ Đám mây" trực tiếp trên giao diện web để dán cấu hình.
- * 
- * Khi có cấu hình, hệ thống sẽ tự động đồng bộ thời gian thực đa người dùng (Real-time).
- * Khi không có cấu hình, hệ thống sẽ chạy ở chế độ Offline (Lưu trữ an toàn trên máy qua localStorage).
+ * CẤU HÌNH FIREBASE DỰ ÁN XULYHOSO
  */
-
-window.__firebase_config = window.__firebase_config || null;
-
-/* Ví dụ mẫu cấu hình:
 window.__firebase_config = {
-  apiKey: "AIzaSy...",
-  authDomain: "your-app.firebaseapp.com",
-  projectId: "your-app",
-  storageBucket: "your-app.firebasestorage.app",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:abcdef..."
+  apiKey: "AIzaSyAheRZfnHiAuoUy83qJ71ZkIkDUIAhlaZU",
+  authDomain: "xulyhoso-5ff7d.firebaseapp.com",
+  databaseURL: "https://xulyhoso-5ff7d-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "xulyhoso-5ff7d",
+  storageBucket: "xulyhoso-5ff7d.firebasestorage.app",
+  messagingSenderId: "956992807846",
+  appId: "1:956992807846:web:6c520182f2380726242567"
 };
-*/
