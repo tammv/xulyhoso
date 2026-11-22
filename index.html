@@ -453,6 +453,12 @@
           </div>
           <p id="passcodeErrorMsg" class="hidden text-xs text-rose-600 font-medium pt-1 text-center">Mã không chính xác. Vui lòng thử lại!</p>
         </div>
+
+        <div class="mt-3 pt-2.5 border-t border-slate-100 text-center">
+          <button type="button" onclick="bypassOrClearPasscode()" class="text-[11px] text-amber-700 hover:text-amber-800 underline font-medium transition">
+            Hồ sơ nhập từ Excel cũ hoặc quên mã? Bấm vào đây để bỏ mã bảo vệ
+          </button>
+        </div>
       </div>
 
       <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
@@ -816,7 +822,9 @@
       isCloudMode: false,
       hasSeededOnce: false,
       pendingAuthTargetDocId: null,
-      pendingAuthAction: null // 'edit' | 'delete'
+      pendingAuthAction: null, // 'edit' | 'delete' | 'inlineRecipient' | 'markReturned' | 'handoffDetail'
+      pendingAuthExtra: null,
+      unlockedDocIds: new Set()
     };
 
     function saveLocalDocuments() {
@@ -1475,7 +1483,7 @@
             : `<span class="text-[11px] text-emerald-700 font-semibold px-1.5">Đã trả</span>`;
 
           return `
-            <tr onclick="openDetailModal('${item.id}')" class="cursor-pointer transition ${zebraBg}">
+            <tr onclick="openDetailModal('${item.id}')" ondblclick="requestEditDocumentWithAuth('${item.id}')" title="Bấm 1 lần: Xem chi tiết. Nhấp đúp: Sửa nhanh hồ sơ." class="cursor-pointer transition ${zebraBg}">
               <td class="${cellPad} text-center font-medium text-slate-500 border border-slate-200 tabular-nums sticky left-0 z-10 ${stickyBg}">${idx + 1}</td>
               <td class="${cellPad} font-mono font-bold text-slate-800 border border-slate-200 whitespace-nowrap sticky left-11 z-10 ${stickyBg}">
                 <div class="flex items-center gap-1">
@@ -1660,6 +1668,21 @@
       const docItem = state.documents.find((d) => d.id === docId);
       if (!docItem || docItem.recipient === newRecipient) return;
 
+      const code = String(docItem.editCode || "").trim();
+      if (code && !state.unlockedDocIds.has(docId)) {
+        // Có mã bảo vệ và chưa mở khóa -> yêu cầu nhập mã trước khi đổi
+        openPasscodeModal(docId, "inlineRecipient", { newRecipient });
+        renderLedgerTable();
+        return;
+      }
+
+      await executeInlineRecipientChange(docId, newRecipient);
+    };
+
+    window.executeInlineRecipientChange = async function (docId, newRecipient) {
+      const docItem = state.documents.find((d) => d.id === docId);
+      if (!docItem || docItem.recipient === newRecipient) return;
+
       const oldRecipient = docItem.recipient;
       const todayISO = getTodayLocalISO();
       const updates = { recipient: newRecipient };
@@ -1688,7 +1711,16 @@
     };
 
     window.markReturnedOneClick = async function (docId) {
-      await handleInlineRecipientChange(docId, "Đã trả lại");
+      const docItem = state.documents.find((d) => d.id === docId);
+      if (!docItem) return;
+
+      const code = String(docItem.editCode || "").trim();
+      if (code && !state.unlockedDocIds.has(docId)) {
+        openPasscodeModal(docId, "markReturned");
+        return;
+      }
+
+      await executeInlineRecipientChange(docId, "Đã trả lại");
     };
 
     // -------------------------------------------------------------------------
@@ -1698,8 +1730,9 @@
       const item = state.documents.find((d) => d.id === docId);
       if (!item) return;
 
-      if (!item.editCode) {
-        // Hồ sơ chưa có mã bảo vệ -> Cho phép sửa ngay và nhắc đặt mã
+      const code = String(item.editCode || "").trim();
+      if (!code || state.unlockedDocIds.has(docId)) {
+        // Hồ sơ không có mã hoặc đã mở khóa trong phiên -> Cho phép sửa ngay
         openFormModal(docId);
         return;
       }
@@ -1711,7 +1744,9 @@
       const item = state.documents.find((d) => d.id === docId);
       if (!item) return;
 
-      if (!item.editCode) {
+      const code = String(item.editCode || "").trim();
+      if (!code || state.unlockedDocIds.has(docId)) {
+        // Hồ sơ không có mã hoặc đã mở khóa -> Xác nhận xóa thông thường
         promptDeleteDocument(docId);
         return;
       }
@@ -1719,12 +1754,13 @@
       openPasscodeModal(docId, "delete");
     };
 
-    window.openPasscodeModal = function (docId, action = "edit") {
+    window.openPasscodeModal = function (docId, action = "edit", extra = null) {
       const item = state.documents.find((d) => d.id === docId);
       if (!item) return;
 
       state.pendingAuthTargetDocId = docId;
       state.pendingAuthAction = action;
+      state.pendingAuthExtra = extra;
 
       document.getElementById("passcodeModalMhs").textContent = item.mhs || "Chưa có MHS";
       document.getElementById("passcodeModalTitle").textContent = item.title || "";
@@ -1741,6 +1777,7 @@
       document.getElementById("passcodeModal").classList.add("hidden");
       state.pendingAuthTargetDocId = null;
       state.pendingAuthAction = null;
+      state.pendingAuthExtra = null;
     };
 
     window.togglePasscodeVisibility = function () {
@@ -1748,9 +1785,24 @@
       input.type = input.type === "password" ? "text" : "password";
     };
 
-    window.submitPasscodeVerification = function () {
+    window.dispatchPendingAuthAction = async function (docId, action, extra) {
+      if (action === "edit") {
+        openFormModal(docId);
+      } else if (action === "delete") {
+        promptDeleteDocument(docId);
+      } else if (action === "inlineRecipient") {
+        await executeInlineRecipientChange(docId, extra?.newRecipient);
+      } else if (action === "markReturned") {
+        await executeInlineRecipientChange(docId, "Đã trả lại");
+      } else if (action === "handoffDetail") {
+        await executeHandoffFromDetail(extra?.targetStage, extra?.actor, extra?.note);
+      }
+    };
+
+    window.submitPasscodeVerification = async function () {
       const docId = state.pendingAuthTargetDocId;
       const action = state.pendingAuthAction;
+      const extra = state.pendingAuthExtra;
       const item = state.documents.find((d) => d.id === docId);
 
       if (!item) {
@@ -1762,13 +1814,10 @@
       const expected = String(item.editCode || "").trim();
 
       if (entered === expected) {
-        // Mã chính xác!
+        // Mã chính xác! Lưu mở khóa phiên này
+        state.unlockedDocIds.add(docId);
         closePasscodeModal();
-        if (action === "edit") {
-          openFormModal(docId);
-        } else if (action === "delete") {
-          promptDeleteDocument(docId);
-        }
+        await dispatchPendingAuthAction(docId, action, extra);
       } else {
         const errorMsg = document.getElementById("passcodeErrorMsg");
         errorMsg.classList.remove("hidden");
@@ -1777,6 +1826,27 @@
         input.classList.add("border-rose-500", "ring-2", "ring-rose-500/20");
         input.focus();
         showToast("Mã cấp quyền không chính xác!", "error");
+      }
+    };
+
+    window.bypassOrClearPasscode = async function () {
+      const docId = state.pendingAuthTargetDocId;
+      const action = state.pendingAuthAction;
+      const extra = state.pendingAuthExtra;
+      const item = state.documents.find((d) => d.id === docId);
+      if (!item) {
+        closePasscodeModal();
+        return;
+      }
+      try {
+        await updateExistingDocument(docId, { editCode: "" });
+        state.unlockedDocIds.add(docId);
+        showToast(`Đã gỡ bỏ mã bảo vệ cho hồ sơ ${item.mhs}`, "info");
+        closePasscodeModal();
+        await dispatchPendingAuthAction(docId, action, extra);
+      } catch (err) {
+        console.error(err);
+        showToast("Không thể gỡ mã bảo vệ.", "error");
       }
     };
 
@@ -1835,7 +1905,7 @@
         document.getElementById("fieldDueDate").value = item.dueDate || "";
         document.getElementById("fieldReturnDate").value = item.returnDate || "";
         document.getElementById("fieldNote").value = item.note || "";
-        document.getElementById("fieldEditCode").value = item.editCode || generateRandom4Digits();
+        document.getElementById("fieldEditCode").value = item.editCode || "";
 
         // Nơi nhận
         if (!state.recipients.includes(item.recipient) && item.recipient !== "Đã trả lại") {
@@ -1873,7 +1943,7 @@
       const dueDate = document.getElementById("fieldDueDate").value || "";
       let returnDate = document.getElementById("fieldReturnDate").value || "";
       const note = document.getElementById("fieldNote").value.trim();
-      const editCode = document.getElementById("fieldEditCode").value.trim() || generateRandom4Digits();
+      const editCode = document.getElementById("fieldEditCode").value.trim();
 
       // Xử lý nơi nhận mới tùy chỉnh
       if (recipient === "__NEW_CUSTOM__") {
@@ -2046,8 +2116,25 @@
       const docItem = state.documents.find((d) => d.id === state.activeDetailId);
       if (!docItem || docItem.recipient === targetStage) return;
 
-      const actor = document.getElementById("handoffActorInput").value.trim() || docItem.sender || "Người dùng";
-      const note = document.getElementById("handoffNoteInput").value.trim() || `Chuyển sang ${targetStage}`;
+      const actor = document.getElementById("handoffActorInput")?.value?.trim() || docItem.sender || "Người dùng";
+      const note = document.getElementById("handoffNoteInput")?.value?.trim() || `Chuyển sang ${targetStage}`;
+
+      const code = String(docItem.editCode || "").trim();
+      if (code && !state.unlockedDocIds.has(docItem.id)) {
+        openPasscodeModal(docItem.id, "handoffDetail", { targetStage, actor, note });
+        return;
+      }
+
+      await executeHandoffFromDetail(targetStage, actor, note);
+    };
+
+    window.executeHandoffFromDetail = async function (targetStage, actor, note) {
+      if (!state.activeDetailId) return;
+      const docItem = state.documents.find((d) => d.id === state.activeDetailId);
+      if (!docItem || docItem.recipient === targetStage) return;
+
+      actor = actor || document.getElementById("handoffActorInput")?.value?.trim() || docItem.sender || "Người dùng";
+      note = note || document.getElementById("handoffNoteInput")?.value?.trim() || `Chuyển sang ${targetStage}`;
 
       const historyEntry = {
         time: getCurrentTimestampVN(),
@@ -2068,7 +2155,8 @@
 
       try {
         await updateExistingDocument(docItem.id, updates);
-        document.getElementById("handoffNoteInput").value = "";
+        const noteEl = document.getElementById("handoffNoteInput");
+        if (noteEl) noteEl.value = "";
         const refreshed = state.documents.find((d) => d.id === docItem.id);
         if (refreshed) populateDetailModal(refreshed);
         showToast(`Đã chuyển hồ sơ ${docItem.mhs} sang ${targetStage}`, "success");
@@ -2502,7 +2590,7 @@
               returnDate,
               dueDate,
               note: noteRaw,
-              editCode: codeRaw || generateRandom4Digits(),
+              editCode: (codeRaw || "").trim(),
               history: [
                 {
                   time: getCurrentTimestampVN(),
