@@ -570,9 +570,47 @@
 
         <!-- Bảng tóm tắt thông tin 9 trường -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
-          <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-            <span class="text-slate-500 block">Người gửi</span>
-            <span id="detailSender" class="font-bold text-slate-800 mt-0.5 block"></span>
+          <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 hover:border-emerald-300 transition group relative">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-500 block text-[11px]">Người gửi</span>
+              <button
+                type="button"
+                onclick="promptEditSenderInDetail()"
+                class="text-[11px] text-emerald-700 hover:text-emerald-900 font-semibold inline-flex items-center gap-0.5 opacity-80 group-hover:opacity-100 transition"
+                title="Sửa nhanh người gửi"
+              >
+                <span>✎ Sửa</span>
+              </button>
+            </div>
+            <div id="detailSenderDisplayWrap" class="mt-0.5 cursor-pointer" onclick="promptEditSenderInDetail()" title="Bấm để sửa người gửi">
+              <span id="detailSender" class="font-bold text-slate-800 block truncate"></span>
+            </div>
+            <div id="detailSenderEditWrap" class="hidden mt-1 flex items-center gap-1">
+              <input
+                type="text"
+                id="detailSenderInput"
+                list="senderSuggestions"
+                class="w-full px-2 py-1 text-xs font-semibold bg-white border border-emerald-400 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                placeholder="Tên người gửi..."
+                onkeydown="if(event.key==='Enter') saveSenderFromDetail(); if(event.key==='Escape') cancelEditSenderInDetail();"
+              />
+              <button
+                type="button"
+                onclick="saveSenderFromDetail()"
+                class="px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-bold shrink-0 shadow-2xs"
+                title="Lưu"
+              >
+                ✓
+              </button>
+              <button
+                type="button"
+                onclick="cancelEditSenderInDetail()"
+                class="p-1 rounded text-slate-400 hover:text-slate-700 text-xs shrink-0"
+                title="Hủy"
+              >
+                ✕
+              </button>
+            </div>
           </div>
           <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
             <span class="text-slate-500 block">Ngày gửi</span>
@@ -1588,7 +1626,12 @@
               <td class="${cellPad} text-slate-700 font-medium border border-slate-200">${escapeHTML(item.supplier)}</td>
               <td class="${cellPad} border border-slate-200 whitespace-nowrap">${inlineRecipientSelect}</td>
               <td class="${cellPad} text-slate-600 border border-slate-200 whitespace-nowrap tabular-nums">${formatDateVN(item.sentDate) || "—"}</td>
-              <td class="${cellPad} text-slate-800 font-medium border border-slate-200 whitespace-nowrap">${escapeHTML(item.sender)}</td>
+              <td class="${cellPad} text-slate-800 font-medium border border-slate-200 whitespace-nowrap" onclick="event.stopPropagation(); promptEditSender('${item.id}')" title="Bấm để sửa nhanh người gửi">
+                <div class="flex items-center justify-between gap-1 group cursor-pointer hover:text-emerald-700">
+                  <span class="truncate">${escapeHTML(item.sender || "—")}</span>
+                  <span class="text-[10px] text-slate-400 group-hover:text-emerald-600 opacity-0 group-hover:opacity-100 transition shrink-0">✎</span>
+                </div>
+              </td>
               <td class="${cellPad} border border-slate-200 whitespace-nowrap tabular-nums ${item.returnDate ? "text-emerald-700 font-semibold" : "text-slate-400"}">${formatDateVN(item.returnDate) || "—"}</td>
               <td class="${cellPad} border border-slate-200 whitespace-nowrap tabular-nums ${isOverdue ? "text-rose-600 font-bold" : "text-slate-700"}">${formatDateVN(item.dueDate) || "—"}</td>
               <td class="${cellPad} border border-slate-200 whitespace-nowrap">
@@ -1889,6 +1932,10 @@
         await executeInlineRecipientChange(docId, "Đã trả lại");
       } else if (action === "handoffDetail") {
         await executeHandoffFromDetail(extra?.targetStage, extra?.actor, extra?.note);
+      } else if (action === "editSender") {
+        promptEditSender(docId);
+      } else if (action === "editSenderDetail") {
+        promptEditSenderInDetail();
       }
     };
 
@@ -2119,10 +2166,89 @@
     // -------------------------------------------------------------------------
     // 10. MODAL CHI TIẾT HỒ SƠ & LỊCH SỬ LUÂN CHUYỂN
     // -------------------------------------------------------------------------
+    window.promptEditSender = async function (docId) {
+      const docItem = state.documents.find((d) => d.id === docId);
+      if (!docItem) return;
+
+      const code = String(docItem.editCode || "").trim();
+      if (code && !state.unlockedDocIds.has(docId)) {
+        openPasscodeModal(docId, "editSender");
+        return;
+      }
+
+      const current = docItem.sender === "Excel Import" ? "" : (docItem.sender || "");
+      const newSender = window.prompt(`Chỉnh sửa người gửi cho hồ sơ ${docItem.mhs}:`, current);
+      if (newSender === null) return;
+
+      const trimmed = newSender.trim();
+      try {
+        await updateExistingDocument(docId, { sender: trimmed || "Chưa rõ" });
+        showToast(`Hồ sơ ${docItem.mhs}: Đã cập nhật người gửi thành "${trimmed || "Chưa rõ"}"`, "success");
+        if (state.activeDetailId === docId) {
+          const refreshed = state.documents.find((d) => d.id === docId);
+          if (refreshed) populateDetailModal(refreshed);
+        }
+      } catch (err) {
+        console.error(err);
+        showToast("Không thể cập nhật người gửi.", "error");
+      }
+    };
+
+    window.promptEditSenderInDetail = function () {
+      if (!state.activeDetailId) return;
+      const docItem = state.documents.find((d) => d.id === state.activeDetailId);
+      if (!docItem) return;
+
+      const code = String(docItem.editCode || "").trim();
+      if (code && !state.unlockedDocIds.has(docItem.id)) {
+        openPasscodeModal(docItem.id, "editSenderDetail");
+        return;
+      }
+
+      document.getElementById("detailSenderDisplayWrap")?.classList.add("hidden");
+      const editWrap = document.getElementById("detailSenderEditWrap");
+      if (editWrap) {
+        editWrap.classList.remove("hidden");
+        const input = document.getElementById("detailSenderInput");
+        if (input) {
+          input.value = docItem.sender === "Excel Import" ? "" : (docItem.sender || "");
+          input.focus();
+          input.select();
+        }
+      }
+    };
+
+    window.cancelEditSenderInDetail = function () {
+      document.getElementById("detailSenderDisplayWrap")?.classList.remove("hidden");
+      document.getElementById("detailSenderEditWrap")?.classList.add("hidden");
+    };
+
+    window.saveSenderFromDetail = async function () {
+      if (!state.activeDetailId) return;
+      const docItem = state.documents.find((d) => d.id === state.activeDetailId);
+      if (!docItem) return;
+
+      const input = document.getElementById("detailSenderInput");
+      const newSender = input ? input.value.trim() : "";
+      const valToSave = newSender || "Chưa rõ";
+
+      try {
+        await updateExistingDocument(docItem.id, { sender: valToSave });
+        cancelEditSenderInDetail();
+        const refreshed = state.documents.find((d) => d.id === docItem.id);
+        if (refreshed) populateDetailModal(refreshed);
+        showToast(`Hồ sơ ${docItem.mhs}: Đã đổi người gửi thành "${valToSave}"`, "success");
+      } catch (err) {
+        console.error(err);
+        showToast("Không thể cập nhật người gửi.", "error");
+      }
+    };
+
     window.openDetailModal = function (docId) {
       const item = state.documents.find((d) => d.id === docId);
       if (!item) return;
       state.activeDetailId = docId;
+      cancelEditSenderInDetail();
       populateDetailModal(item);
       document.getElementById("detailModal").classList.remove("hidden");
     };
@@ -2821,7 +2947,7 @@
               supplier: supplierRaw || "—",
               recipient,
               sentDate,
-              sender: senderRaw || "Excel Import",
+              sender: (senderRaw || "").trim(),
               returnDate,
               dueDate,
               note: noteRaw,
