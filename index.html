@@ -28,6 +28,65 @@
   </script>
 
 
+  <style>
+    /* Ghim cố định hàng tiêu đề & hàng thêm nhanh khi cuộn chuột */
+    #ledgerTable {
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    /* 1. Hàng tiêu đề các cột (thead): Ghim ở đỉnh bảng top: 0 */
+    #ledgerTableHead th {
+      position: sticky;
+      top: 0;
+      z-index: 25;
+      background-color: #065f46; /* emerald-800 */
+    }
+    #ledgerTableHead th.th-sticky-stt {
+      left: 0;
+      z-index: 45;
+    }
+    #ledgerTableHead th.th-sticky-mhs {
+      left: 44px;
+      z-index: 45;
+    }
+
+    /* 2. Hàng thêm nhanh (+Mới): Ghim liền kề ngay dưới hàng tiêu đề */
+    #quickAddTbody tr td {
+      position: sticky;
+      top: var(--table-th-height, 35px);
+      z-index: 20;
+      background-color: #fffbeb; /* amber-50 */
+    }
+    #quickAddTbody tr td.qa-sticky-stt {
+      left: 0;
+      z-index: 35;
+    }
+    #quickAddTbody tr td.qa-sticky-mhs {
+      left: 44px;
+      z-index: 35;
+    }
+
+    /* Viền ô bảng sắc nét và đồng đều */
+    #ledgerTable th,
+    #ledgerTable td {
+      border-bottom: 1px solid #e2e8f0;
+      border-right: 1px solid #e2e8f0;
+    }
+    #ledgerTable th:first-child,
+    #ledgerTable td:first-child {
+      border-left: 1px solid #e2e8f0;
+    }
+    #ledgerTable thead th {
+      border-color: #047857;
+      border-top: 1px solid #047857;
+      border-bottom: 2px solid #047857;
+    }
+    #quickAddTbody td {
+      border-bottom: 2px solid #059669;
+      border-color: #cbd5e1;
+    }
+  </style>
 </head>
 <body class="bg-slate-100/80 text-slate-800 font-sans antialiased selection:bg-emerald-100 selection:text-emerald-900 min-h-screen flex flex-col">
 
@@ -279,8 +338,8 @@
         </div>
       </div>
 
-      <div class="overflow-x-auto max-h-[calc(100vh-285px)] min-h-[380px]">
-        <table id="ledgerTable" class="w-full border-collapse text-left">
+      <div class="overflow-x-auto overflow-y-auto max-h-[calc(100vh-275px)] min-h-[380px] relative">
+        <table id="ledgerTable" class="w-full border-separate border-spacing-0 text-left">
           <thead id="ledgerTableHead" class="sticky top-0 z-20 select-none shadow-2xs"></thead>
           <tbody id="quickAddTbody" class="bg-amber-50/70 border-b-2 border-emerald-600/40"></tbody>
           <tbody id="ledgerTableBody" class="divide-y divide-slate-200 bg-white"></tbody>
@@ -1393,9 +1452,9 @@
       ).join("") + `<option value="Đã trả lại">Đã trả lại</option>`;
 
       thead.innerHTML = `
-        <tr class="bg-emerald-800 text-white">
-          <th class="${thPad} text-center w-11 sticky left-0 z-30 bg-emerald-800">STT</th>
-          <th class="${thPad} whitespace-nowrap sticky left-11 z-30 bg-emerald-800">MHS</th>
+        <tr class="bg-emerald-800 text-white shadow-2xs">
+          <th class="${thPad} th-sticky-stt text-center w-11">STT</th>
+          <th class="${thPad} th-sticky-mhs whitespace-nowrap">MHS</th>
           <th class="${thPad} min-w-[240px]">Tên hồ sơ / Nội dung</th>
           <th class="${thPad} min-w-[140px]">Nhà cung cấp</th>
           <th class="${thPad} whitespace-nowrap min-w-[150px]">Nơi / Người nhận</th>
@@ -1411,43 +1470,52 @@
 
       quickAddTbody.classList.toggle("hidden", !state.showQuickAdd);
       quickAddTbody.innerHTML = `
-        <tr onkeydown="handleQuickAddKeydown(event)">
-          <td class="py-1.5 px-2 text-center text-[11px] font-bold text-amber-800 border border-slate-200 sticky left-0 z-10 bg-amber-50">+Mới</td>
-          <td class="py-1.5 px-1.5 border border-slate-200 sticky left-11 z-10 bg-amber-50">
+        <tr onkeydown="handleQuickAddKeydown(event)" class="shadow-2xs">
+          <td class="py-1.5 px-2 qa-sticky-stt text-center text-[11px] font-bold text-amber-800">+Mới</td>
+          <td class="py-1.5 px-1.5 qa-sticky-mhs">
             <input type="text" id="qaMhs" value="${escapeHTML(nextMhsSuggestion)}" class="w-20 px-1.5 py-1 text-xs font-mono font-semibold bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="MHS" />
           </td>
-          <td class="py-1.5 px-1.5 border border-slate-200">
+          <td class="py-1.5 px-1.5">
             <input type="text" id="qaTitle" class="w-full min-w-[200px] px-2 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="Nhập tên hồ sơ / nội dung chứng từ..." />
           </td>
-          <td class="py-1.5 px-1.5 border border-slate-200">
+          <td class="py-1.5 px-1.5">
             <input type="text" id="qaSupplier" class="w-full min-w-[120px] px-2 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="Nhà cung cấp..." />
           </td>
-          <td class="py-1.5 px-1.5 border border-slate-200">
+          <td class="py-1.5 px-1.5">
             <select id="qaRecipient" class="w-full px-1.5 py-1 text-xs font-medium bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600">
               ${recipientOptionsHTML}
             </select>
           </td>
-          <td class="py-1.5 px-1.5 border border-slate-200">
+          <td class="py-1.5 px-1.5">
             <input type="date" id="qaSentDate" value="${todayISO}" class="px-1.5 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" />
           </td>
-          <td class="py-1.5 px-1.5 border border-slate-200">
+          <td class="py-1.5 px-1.5">
             <input type="text" id="qaSender" list="senderSuggestions" class="w-24 px-2 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="Người gửi" />
           </td>
-          <td class="py-1.5 px-1.5 text-center text-[11px] text-slate-400 border border-slate-200">—</td>
-          <td class="py-1.5 px-1.5 border border-slate-200">
+          <td class="py-1.5 px-1.5 text-center text-[11px] text-slate-400">—</td>
+          <td class="py-1.5 px-1.5">
             <input type="date" id="qaDueDate" value="" title="Ngày hạn (không bắt buộc)" class="px-1.5 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" />
           </td>
-          <td class="py-1.5 px-1.5 text-center text-[11px] text-slate-400 border border-slate-200 font-medium">Tự động</td>
-          <td class="py-1.5 px-1.5 border border-slate-200">
+          <td class="py-1.5 px-1.5 text-center text-[11px] text-slate-400 font-medium">Tự động</td>
+          <td class="py-1.5 px-1.5">
             <input type="text" id="qaNote" class="w-full min-w-[110px] px-2 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="Lưu ý..." />
           </td>
-          <td class="py-1.5 px-2 text-right border border-slate-200 whitespace-nowrap">
+          <td class="py-1.5 px-2 text-right whitespace-nowrap">
             <button type="button" onclick="submitQuickAddRow()" class="px-2.5 py-1 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shadow-2xs transition">
               + Lưu dòng
             </button>
           </td>
         </tr>
       `;
+
+      // Cập nhật chiều cao thực tế của thead để dán khít hàng thêm nhanh ngay bên dưới
+      requestAnimationFrame(() => {
+        const theadEl = document.getElementById("ledgerTableHead");
+        if (theadEl) {
+          const h = theadEl.offsetHeight || 35;
+          document.getElementById("ledgerTable")?.style.setProperty("--table-th-height", h + "px");
+        }
+      });
 
       if (rows.length === 0) {
         tbody.innerHTML = "";
