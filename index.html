@@ -66,7 +66,7 @@
 
         <!-- Nhóm nút hành động trên Header -->
         <div class="flex flex-wrap items-center gap-2">
-          <button type="button" onclick="downloadTemplateXLSX()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 transition" title="Tải file Excel mẫu chuẩn 9 cột để nhập liệu">
+          <button type="button" onclick="downloadTemplateXLSX()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 transition" title="Tải file Excel mẫu chuẩn 11 cột để nhập liệu">
             <svg class="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
@@ -2443,28 +2443,53 @@
       if (!ensureSheetJSReady()) return;
       try {
         const wb = XLSX.utils.book_new();
-        const headers = [
+        // SHEET 1: Theo_doi_ho_so (Chuẩn hóa 11 cột 100% đồng bộ với file xuất dữ liệu)
+        const sheet1Headers = [
+          "STT",
+          "MHS",
+          "Tên hồ sơ / Nội dung chứng từ",
+          "Nhà cung cấp",
+          "Nơi/người nhận hiện tại",
+          "Ngày gửi",
+          "Người gửi",
+          "Ngày trả lại",
+          "Ngày hạn",
+          "Trạng thái",
+          "Lưu ý"
+        ];
+        const sheet1Rows = [
+          sheet1Headers,
+          [1, "HS-701", "HĐ Dịch vụ bảo trì thang máy", "KONE", "GM", "01/11/2026", "A. Huy", "", "15/11/2026", "Đang trình ký", "Gấp trước ngày 15"],
+          [2, "HS-702", "ĐNTT Chi phí điện chiếu sáng T10", "EVN HANOI", "FN", "02/11/2026", "C. Hồng", "04/11/2026", "", "Đã trả lại", "Đã duyệt thanh toán"],
+          [3, "HS-703", "Hồ sơ quyết toán bọc bảo ôn lò hơi", "Metaco", "OR c Thủ", "03/11/2026", "Trang", "", "05/11/2026", "Sắp đến hạn", "Cần ký trong ngày"]
+        ];
+        const ws1 = XLSX.utils.aoa_to_sheet(sheet1Rows);
+        autoFitColumns(ws1, sheet1Rows);
+        XLSX.utils.book_append_sheet(wb, ws1, "Theo_doi_ho_so");
+
+        // SHEET 2: Lich_su_luan_chuyen (Đồng bộ 8 cột lịch sử)
+        const sheet2Headers = [
           "STT",
           "MHS",
           "Tên hồ sơ",
-          "Nhà cung cấp",
-          "Nơi/người nhận",
-          "Ngày gửi (dd/mm/yyyy)",
-          "Người gửi",
-          "Ngày trả lại (dd/mm/yyyy)",
-          "Ngày hạn (dd/mm/yyyy)",
-          "Lưu ý"
+          "Thời điểm luân chuyển",
+          "Người thực hiện",
+          "Từ nơi nhận",
+          "Đến nơi nhận",
+          "Ghi chú chuyển bước"
         ];
-        const rows = [
-          headers,
-          [1, "HS-723", "HĐ Dịch vụ bảo trì thang máy", "KONE", "GM", "01/11/2026", "A. Huy", "", "15/11/2026", "Gấp trước ngày 15"],
-          [2, "HS-724", "ĐNTT Chi phí điện chiếu sáng T10", "EVN HANOI", "FN", "02/11/2026", "C. Hồng", "04/11/2026", "", "Đã duyệt thanh toán"]
+        const sheet2Rows = [
+          sheet2Headers,
+          [1, "HS-701", "HĐ Dịch vụ bảo trì thang máy", "01/11/2026 09:15", "A. Huy", "Khởi tạo", "GM", "Trình ký hợp đồng bảo trì"],
+          [2, "HS-702", "ĐNTT Chi phí điện chiếu sáng T10", "02/11/2026 14:30", "C. Hồng", "Khởi tạo", "FN", "Trình ký ĐNTT"],
+          [3, "HS-702", "ĐNTT Chi phí điện chiếu sáng T10", "04/11/2026 16:45", "FN", "FN", "Đã trả lại", "Hoàn tất trả hồ sơ"]
         ];
-        const ws = XLSX.utils.aoa_to_sheet(rows);
-        autoFitColumns(ws, rows);
-        XLSX.utils.book_append_sheet(wb, ws, "Mau_Nhap_Ho_So");
+        const ws2 = XLSX.utils.aoa_to_sheet(sheet2Rows);
+        autoFitColumns(ws2, sheet2Rows);
+        XLSX.utils.book_append_sheet(wb, ws2, "Lich_su_luan_chuyen");
+
         XLSX.writeFile(wb, "Template_Nhap_Ho_So_Trinh_Ky.xlsx");
-        showToast("Đã tải xuống file template mẫu (.xlsx)", "success");
+        showToast("Đã tải xuống file template mẫu chuẩn 11 cột (.xlsx)", "success");
       } catch (err) {
         console.error(err);
         showToast("Không thể tạo file template.", "error");
@@ -2477,13 +2502,16 @@
     function parseFlexibleExcelDate(rawVal) {
       if (!rawVal) return "";
       if (rawVal instanceof Date) {
+        if (isNaN(rawVal.getTime())) return "";
         const y = rawVal.getFullYear();
         const m = String(rawVal.getMonth() + 1).padStart(2, "0");
         const d = String(rawVal.getDate()).padStart(2, "0");
         return `${y}-${m}-${d}`;
       }
       if (typeof rawVal === "number") {
+        if (rawVal < 1000) return "";
         const dateObj = new Date(Math.round((rawVal - 25569) * 86400 * 1000));
+        if (isNaN(dateObj.getTime())) return "";
         const y = dateObj.getUTCFullYear();
         const m = String(dateObj.getUTCMonth() + 1).padStart(2, "0");
         const d = String(dateObj.getUTCDate()).padStart(2, "0");
@@ -2492,12 +2520,29 @@
       const str = String(rawVal).trim();
       if (!str) return "";
       if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
-      const partsSlash = str.split("/");
-      if (partsSlash.length === 3) {
-        const d = partsSlash[0].padStart(2, "0");
-        const m = partsSlash[1].padStart(2, "0");
-        const y = partsSlash[2].length === 2 ? `20${partsSlash[2]}` : partsSlash[2];
-        return `${y}-${m}-${d}`;
+
+      // Hỗ trợ cả dấu /, -, . (ví dụ: 01/11/2026, 7.4.2026, 18/3/2026, 2026-03-13)
+      const parts = str.split(/[\/\.\-]/);
+      if (parts.length === 3) {
+        if (parts[0].length === 4) {
+          const y = parts[0];
+          const m = parts[1].padStart(2, "0");
+          const d = parts[2].padStart(2, "0");
+          return `${y}-${m}-${d}`;
+        }
+        const d = parts[0].padStart(2, "0");
+        const m = parts[1].padStart(2, "0");
+        let y = parts[2];
+        if (y.length === 2) {
+          y = `20${y}`;
+        } else if (y.length > 4) {
+          // Xử lý lỗi gõ thừa số năm như 20226 -> 2026
+          if (y.startsWith("202")) y = `202${y.slice(-1)}`;
+          else y = y.substring(0, 4);
+        }
+        if (parseInt(m, 10) >= 1 && parseInt(m, 10) <= 12 && parseInt(d, 10) >= 1 && parseInt(d, 10) <= 31) {
+          return `${y}-${m}-${d}`;
+        }
       }
       return "";
     }
@@ -2550,9 +2595,49 @@
         try {
           const data = new Uint8Array(e.target.result);
           const workbook = XLSX.read(data, { type: "array", cellDates: true });
-          const firstSheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[firstSheetName];
+          // Ưu tiên đọc sheet "Theo_doi_ho_so", nếu không thì lấy sheet đầu tiên
+          const targetSheetName = workbook.SheetNames.find(s => removeVietnameseTones(s).includes("theo doi") || removeVietnameseTones(s).includes("ho so")) || workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[targetSheetName];
           const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+
+          // Đọc sheet lịch sử luân chuyển (nếu có - từ file xuất của hệ thống)
+          const historyByMhs = {};
+          const historySheetName = workbook.SheetNames.find(s => removeVietnameseTones(s).includes("luan chuyen") || removeVietnameseTones(s).includes("lich su"));
+          if (historySheetName && workbook.Sheets[historySheetName]) {
+            const rawHRows = XLSX.utils.sheet_to_json(workbook.Sheets[historySheetName], { header: 1, defval: "" });
+            if (rawHRows.length > 1) {
+              let hHeaderIdx = 0;
+              for (let i = 0; i < Math.min(rawHRows.length, 4); i++) {
+                const rowStr = rawHRows[i].map(c => removeVietnameseTones(String(c))).join(" ");
+                if (rowStr.includes("mhs") || rowStr.includes("thoi diem") || rowStr.includes("luan chuyen")) {
+                  hHeaderIdx = i;
+                  break;
+                }
+              }
+              const hHeaders = rawHRows[hHeaderIdx].map(c => removeVietnameseTones(String(c)));
+              const colHMhs = hHeaders.findIndex(h => h.includes("mhs"));
+              const colHTime = hHeaders.findIndex(h => h.includes("thoi diem") || h.includes("ngay") || h.includes("gio"));
+              const colHActor = hHeaders.findIndex(h => h.includes("nguoi thuc hien") || h.includes("nguoi thao tac") || h.includes("actor"));
+              const colHFrom = hHeaders.findIndex(h => h.includes("tu noi") || h.includes("from"));
+              const colHTo = hHeaders.findIndex(h => h.includes("den noi") || h.includes("to"));
+              const colHNote = hHeaders.findIndex(h => h.includes("ghi chu") || h.includes("note") || h.includes("luu y"));
+
+              for (let r = hHeaderIdx + 1; r < rawHRows.length; r++) {
+                const hRow = rawHRows[r];
+                if (!hRow || hRow.every(c => String(c).trim() === "")) continue;
+                const mhsKey = colHMhs !== -1 ? String(hRow[colHMhs]).trim() : "";
+                if (!mhsKey) continue;
+                if (!historyByMhs[mhsKey]) historyByMhs[mhsKey] = [];
+                historyByMhs[mhsKey].push({
+                  time: colHTime !== -1 ? String(hRow[colHTime]).trim() : getCurrentTimestampVN(),
+                  actor: colHActor !== -1 ? String(hRow[colHActor]).trim() : "Excel Import",
+                  from: colHFrom !== -1 ? String(hRow[colHFrom]).trim() : "Khởi tạo",
+                  to: colHTo !== -1 ? String(hRow[colHTo]).trim() : "",
+                  note: colHNote !== -1 ? String(hRow[colHNote]).trim() : ""
+                });
+              }
+            }
+          }
 
           if (!rawRows || rawRows.length < 2) {
             showToast("File Excel trống hoặc không có dòng dữ liệu.", "error");
@@ -2673,15 +2758,17 @@
               dueDate,
               note: noteRaw,
               editCode: (codeRaw || "").trim(),
-              history: [
-                {
-                  time: getCurrentTimestampVN(),
-                  actor: "Excel Import",
-                  from: "Khởi tạo",
-                  to: recipient,
-                  note: "Nhập tự động từ file Excel"
-                }
-              ]
+              history: (mhsRaw && historyByMhs[mhsRaw] && historyByMhs[mhsRaw].length > 0)
+                ? historyByMhs[mhsRaw]
+                : [
+                    {
+                      time: getCurrentTimestampVN(),
+                      actor: senderRaw || "Excel Import",
+                      from: "Khởi tạo",
+                      to: recipient,
+                      note: "Nhập tự động từ file Excel"
+                    }
+                  ]
             });
           }
 
