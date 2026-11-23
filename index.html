@@ -836,6 +836,24 @@
       }
     }
 
+    function sanitizeRecipientsList(list) {
+      if (!Array.isArray(list)) return [...DEFAULT_RECIPIENTS];
+      const cleaned = list.filter((r) => {
+        if (!r || typeof r !== "string") return false;
+        const s = r.trim();
+        if (s.length === 0 || s.length > 35) return false;
+        const lower = s.toLowerCase();
+        // Lọc bỏ triệt để các chuỗi bị đọc nhầm từ tiêu đề hồ sơ/chứng từ
+        if (/^\d+\s*(hđ|hd|hợp đồng|hop dong|bbnt|pl|po|hóa đơn|hoa don|báo giá|cam kết|biên bản)/i.test(lower)) return false;
+        if (lower.includes("báo giá") || lower.includes("nghiệm thu") || lower.includes("đề nghị thanh toán") || lower.includes("bảo mật") || lower.includes("hóa đơn")) return false;
+        return true;
+      });
+      DEFAULT_RECIPIENTS.forEach((def) => {
+        if (!cleaned.includes(def)) cleaned.push(def);
+      });
+      return cleaned;
+    }
+
     function saveLocalRecipients() {
       try {
         localStorage.setItem(RECIPIENTS_STORAGE_KEY, JSON.stringify(state.recipients));
@@ -850,12 +868,15 @@
         if (stored) {
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            state.recipients = parsed;
+            state.recipients = sanitizeRecipientsList(parsed);
+            saveLocalRecipients();
+            return;
           }
         }
       } catch (e) {
         console.warn("Không thể đọc nơi nhận:", e);
       }
+      state.recipients = [...DEFAULT_RECIPIENTS];
     }
 
     // -------------------------------------------------------------------------
@@ -2539,25 +2560,77 @@
           }
 
           let headerRowIndex = 0;
-          for (let i = 0; i < Math.min(rawRows.length, 5); i++) {
-            const rowStr = rawRows[i].map((c) => String(c).toLowerCase()).join(" ");
-            if (rowStr.includes("mhs") || rowStr.includes("tên") || rowStr.includes("nhà cung cấp") || rowStr.includes("nơi nhận")) {
+          for (let i = 0; i < Math.min(rawRows.length, 6); i++) {
+            const rowStr = rawRows[i].map((c) => removeVietnameseTones(String(c))).join(" ");
+            if (
+              rowStr.includes("mhs") ||
+              rowStr.includes("ma ho so") ||
+              rowStr.includes("ten ho so") ||
+              rowStr.includes("nha cung cap") ||
+              rowStr.includes("noi nhan") ||
+              rowStr.includes("nguoi nhan")
+            ) {
               headerRowIndex = i;
               break;
             }
           }
 
-          const headerRow = rawRows[headerRowIndex].map((h) => removeVietnameseTones(String(h)));
-          const colMhs = headerRow.findIndex((h) => h.includes("mhs") || h.includes("ma ho so"));
-          const colTitle = headerRow.findIndex((h) => h.includes("ten") || h.includes("noi dung"));
-          const colSupplier = headerRow.findIndex((h) => h.includes("nha cung cap") || h.includes("ncc"));
-          const colRecipient = headerRow.findIndex((h) => h.includes("noi") || h.includes("nguoi nhan") || h.includes("bo phan"));
-          const colSentDate = headerRow.findIndex((h) => h.includes("ngay gui") || h.includes("ngay chuyen"));
-          const colSender = headerRow.findIndex((h) => h.includes("nguoi gui"));
-          const colReturnDate = headerRow.findIndex((h) => h.includes("ngay tra") || h.includes("tra lai"));
-          const colDueDate = headerRow.findIndex((h) => h.includes("ngay han") || h.includes("han"));
-          const colNote = headerRow.findIndex((h) => h.includes("luu y") || h.includes("ghi chu"));
-          const colCode = headerRow.findIndex((h) => h.includes("ma bao ve") || h.includes("passcode") || h.includes("ma pin"));
+          const rawHeaders = rawRows[headerRowIndex].map((h) => String(h || "").trim());
+          const headerRow = rawHeaders.map((h) => removeVietnameseTones(h));
+
+          function findCol(predicate, exclude = []) {
+            return headerRow.findIndex((h, idx) => !exclude.includes(idx) && predicate(h));
+          }
+
+          // 1. Mã hồ sơ
+          const colMhs = findCol((h) => /\bmhs\b|\bma\s*ho\s*so\b|\bma\s*hs\b/.test(h) || h === "mhs");
+
+          // 2. Tên hồ sơ / nội dung (loại trừ các cột chứa từ người)
+          const colTitle = findCol((h) => 
+            (h.includes("ten ho so") || h.includes("noi dung") || h.includes("chung tu") || h === "ten") &&
+            !h.includes("nguoi")
+          );
+
+          // 3. Nhà cung cấp / Đối tác / NCC
+          const colSupplier = findCol((h) => 
+            h.includes("nha cung cap") || /\bncc\b/.test(h) || h.includes("doi tac") || h.includes("supplier")
+          );
+
+          // 4. Ngày gửi / ngày chuyển
+          const colSentDate = findCol((h) => 
+            h.includes("ngay gui") || h.includes("ngay chuyen") || h.includes("ngay trinh")
+          );
+
+          // 5. Ngày trả lại
+          const colReturnDate = findCol((h) => 
+            h.includes("ngay tra") || h.includes("tra lai")
+          );
+
+          // 6. Ngày hạn (QUAN TRỌNG: KHÔNG dùng .includes("han") trần vì "nhan" trong nơi nhận chứa "han")
+          const colDueDate = findCol((h) => 
+            h.includes("ngay han") || h.includes("han tra") || /\bhan\b/.test(h) || h.includes("deadline")
+          );
+
+          // 7. Người gửi (phân biệt với người nhận)
+          const colSender = findCol((h) => 
+            h.includes("nguoi gui") || h.includes("nguoi trinh")
+          );
+
+          // 8. Nơi/người nhận (QUAN TRỌNG: Không dùng .includes("noi") trần vì "noi dung" trong tên hồ sơ chứa "noi")
+          const colRecipient = findCol((h) => 
+            !h.includes("noi dung") &&
+            (h.includes("noi nhan") || h.includes("nguoi nhan") || h.includes("noi/nguoi") || h.includes("noi / nguoi") || h.includes("bo phan") || h.includes("phong ban") || /\bnoi\b/.test(h))
+          , [colTitle, colSender]);
+
+          // 9. Lưu ý / Ghi chú
+          const colNote = findCol((h) => 
+            h.includes("luu y") || h.includes("ghi chu") || h.includes("note")
+          );
+
+          // 10. Mã bảo vệ (nếu có)
+          const colCode = findCol((h) => 
+            h.includes("ma bao ve") || h.includes("passcode") || h.includes("ma pin")
+          );
 
           const parsed = [];
           for (let r = headerRowIndex + 1; r < rawRows.length; r++) {
@@ -2579,7 +2652,12 @@
             if (!titleRaw && !mhsRaw) continue;
 
             let recipient = recipientRaw || (returnDate ? "Đã trả lại" : state.recipients[0] || "GM");
-            if (!state.recipients.includes(recipient) && recipient !== "Đã trả lại") {
+            if (
+              recipient &&
+              recipient !== "Đã trả lại" &&
+              recipient.length <= 35 &&
+              !state.recipients.includes(recipient)
+            ) {
               state.recipients.push(recipient);
               saveLocalRecipients();
             }
@@ -2656,11 +2734,25 @@
 
       try {
         if (mode === "replace") {
+          state.recipients = [...DEFAULT_RECIPIENTS];
           const toDelete = [...state.documents];
           for (const d of toDelete) {
             await removeDocumentById(d.id);
           }
         }
+
+        // Bổ sung các nơi nhận hợp lệ từ file
+        records.forEach((rec) => {
+          if (
+            rec.recipient &&
+            rec.recipient !== "Đã trả lại" &&
+            rec.recipient.length <= 35 &&
+            !state.recipients.includes(rec.recipient)
+          ) {
+            state.recipients.push(rec.recipient);
+          }
+        });
+        saveLocalRecipients();
 
         for (const rec of records) {
           await saveNewDocument(rec);
