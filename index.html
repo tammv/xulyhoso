@@ -912,6 +912,8 @@
       stageFilter: "all",
       senderFilter: "all",
       sortBy: "mhs_desc",
+      sortColumn: "mhs",
+      sortDirection: "desc",
       activeDetailId: null,
       deleteTargetDocId: null,
       parsedImportRows: [],
@@ -1345,23 +1347,43 @@
       });
 
       filtered.sort((a, b) => {
-        if (state.sortBy === "sent_desc") {
-          return (b.sentDate || "").localeCompare(a.sentDate || "");
+        const factor = state.sortDirection === "asc" ? 1 : -1;
+        const col = state.sortColumn;
+
+        if (col === "mhs") {
+          const getNum = (v) => {
+            const m = String(v || "").match(/\d+/);
+            return m ? parseInt(m[0], 10) : 0;
+          };
+          return factor * (getNum(a.mhs) - getNum(b.mhs));
         }
-        if (state.sortBy === "sent_asc") {
-          return (a.sentDate || "").localeCompare(b.sentDate || "");
+
+        if (col === "sentDate" || col === "returnDate" || col === "dueDate") {
+          const valA = a[col] || "";
+          const valB = b[col] || "";
+          if (!valA && !valB) return 0;
+          if (!valA) return 1;
+          if (!valB) return -1;
+          return factor * valA.localeCompare(valB);
         }
-        if (state.sortBy === "due_asc") {
-          if (!a.dueDate) return 1;
-          if (!b.dueDate) return -1;
-          return a.dueDate.localeCompare(b.dueDate);
+
+        if (col === "status") {
+          const order = { overdue: 0, due_soon: 1, in_progress: 2, returned: 3 };
+          const stA = evaluateDocumentStatus(a);
+          const stB = evaluateDocumentStatus(b);
+          const rankA = order[stA.category] !== undefined ? order[stA.category] : 9;
+          const rankB = order[stB.category] !== undefined ? order[stB.category] : 9;
+          if (rankA !== rankB) return factor * (rankA - rankB);
+          return factor * (stA.label || "").localeCompare(stB.label || "");
         }
-        // MHS mới nhất
-        const getNum = (v) => {
-          const m = String(v || "").match(/\d+/);
-          return m ? parseInt(m[0], 10) : 0;
-        };
-        return getNum(b.mhs) - getNum(a.mhs);
+
+        if (col === "title" || col === "supplier" || col === "recipient" || col === "sender" || col === "note") {
+          const valA = String(a[col] || "").trim();
+          const valB = String(b[col] || "").trim();
+          return factor * valA.localeCompare(valB, "vi", { sensitivity: "base" });
+        }
+
+        return 0;
       });
 
       return filtered;
@@ -1471,6 +1493,30 @@
           .join("");
     }
 
+        function getSortHeaderIcon(colKey) {
+      if (state.sortColumn !== colKey) {
+        return '<span class="text-emerald-400/50 text-[10px] ml-1 group-hover:text-amber-200 select-none transition">⇅</span>';
+      }
+      return state.sortDirection === "asc"
+        ? '<span class="text-amber-300 font-extrabold text-xs ml-1 select-none">▲</span>'
+        : '<span class="text-amber-300 font-extrabold text-xs ml-1 select-none">▼</span>';
+    }
+
+    window.handleSortColumn = function (colKey) {
+      if (state.sortColumn === colKey) {
+        state.sortDirection = state.sortDirection === "asc" ? "desc" : "asc";
+      } else {
+        state.sortColumn = colKey;
+        if (["sentDate", "returnDate", "mhs"].includes(colKey)) {
+          state.sortDirection = "desc";
+        } else {
+          state.sortDirection = "asc";
+        }
+      }
+      renderLedgerTable();
+      updateToolbarControls();
+    };
+
     function renderLedgerTable() {
       const rows = getProcessedDocuments();
       const thead = document.getElementById("ledgerTableHead");
@@ -1491,17 +1537,39 @@
 
       thead.innerHTML = `
         <tr class="bg-emerald-800 text-white shadow-2xs">
-          <th class="${thPad} th-sticky-stt text-center w-11">STT</th>
-          <th class="${thPad} th-sticky-mhs whitespace-nowrap">MHS</th>
-          <th class="${thPad} min-w-[240px]">Tên hồ sơ / Nội dung</th>
-          <th class="${thPad} min-w-[140px]">Nhà cung cấp</th>
-          <th class="${thPad} whitespace-nowrap min-w-[150px]">Nơi / Người nhận</th>
-          <th class="${thPad} whitespace-nowrap">Ngày gửi</th>
-          <th class="${thPad} whitespace-nowrap">Người gửi</th>
-          <th class="${thPad} whitespace-nowrap">Ngày trả lại</th>
-          <th class="${thPad} whitespace-nowrap">Ngày hạn</th>
-          <th class="${thPad} whitespace-nowrap">Trạng thái</th>
-          <th class="${thPad} min-w-[130px]">Lưu ý</th>
+          <th class="${thPad} th-sticky-stt text-center w-11 cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('mhs')" title="Bấm để sắp xếp theo STT / MHS">
+            <div class="inline-flex items-center justify-center"><span>STT</span>${getSortHeaderIcon('mhs')}</div>
+          </th>
+          <th class="${thPad} th-sticky-mhs whitespace-nowrap cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('mhs')" title="Bấm để sắp xếp tăng/giảm theo Mã hồ sơ">
+            <div class="inline-flex items-center"><span>MHS</span>${getSortHeaderIcon('mhs')}</div>
+          </th>
+          <th class="${thPad} min-w-[240px] cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('title')" title="Bấm để sắp xếp A-Z / Z-A theo Tên hồ sơ">
+            <div class="flex items-center justify-between"><span>Tên hồ sơ / Nội dung</span>${getSortHeaderIcon('title')}</div>
+          </th>
+          <th class="${thPad} min-w-[140px] cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('supplier')" title="Bấm để sắp xếp theo Nhà cung cấp">
+            <div class="flex items-center justify-between"><span>Nhà cung cấp</span>${getSortHeaderIcon('supplier')}</div>
+          </th>
+          <th class="${thPad} whitespace-nowrap min-w-[150px] cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('recipient')" title="Bấm để sắp xếp theo Nơi nhận">
+            <div class="flex items-center justify-between"><span>Nơi / Người nhận</span>${getSortHeaderIcon('recipient')}</div>
+          </th>
+          <th class="${thPad} whitespace-nowrap cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('sentDate')" title="Bấm để sắp xếp theo Ngày gửi">
+            <div class="inline-flex items-center"><span>Ngày gửi</span>${getSortHeaderIcon('sentDate')}</div>
+          </th>
+          <th class="${thPad} whitespace-nowrap cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('sender')" title="Bấm để sắp xếp theo Người gửi">
+            <div class="inline-flex items-center"><span>Người gửi</span>${getSortHeaderIcon('sender')}</div>
+          </th>
+          <th class="${thPad} whitespace-nowrap cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('returnDate')" title="Bấm để sắp xếp theo Ngày trả lại">
+            <div class="inline-flex items-center"><span>Ngày trả lại</span>${getSortHeaderIcon('returnDate')}</div>
+          </th>
+          <th class="${thPad} whitespace-nowrap cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('dueDate')" title="Bấm để sắp xếp theo Ngày hạn">
+            <div class="inline-flex items-center"><span>Ngày hạn</span>${getSortHeaderIcon('dueDate')}</div>
+          </th>
+          <th class="${thPad} whitespace-nowrap cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('status')" title="Bấm để sắp xếp theo Trạng thái hồ sơ">
+            <div class="inline-flex items-center"><span>Trạng thái</span>${getSortHeaderIcon('status')}</div>
+          </th>
+          <th class="${thPad} min-w-[130px] cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('note')" title="Bấm để sắp xếp theo Lưu ý">
+            <div class="flex items-center justify-between"><span>Lưu ý</span>${getSortHeaderIcon('note')}</div>
+          </th>
           <th class="${thPad} text-right whitespace-nowrap">Thao tác</th>
         </tr>
       `;
@@ -1722,6 +1790,19 @@
 
     window.setSortBy = function (val) {
       state.sortBy = val;
+      if (val === "mhs_desc") {
+        state.sortColumn = "mhs";
+        state.sortDirection = "desc";
+      } else if (val === "sent_desc") {
+        state.sortColumn = "sentDate";
+        state.sortDirection = "desc";
+      } else if (val === "sent_asc") {
+        state.sortColumn = "sentDate";
+        state.sortDirection = "asc";
+      } else if (val === "due_asc") {
+        state.sortColumn = "dueDate";
+        state.sortDirection = "asc";
+      }
       renderAll();
     };
 
@@ -1731,6 +1812,8 @@
       state.senderFilter = "all";
       state.searchQuery = "";
       state.sortBy = "mhs_desc";
+      state.sortColumn = "mhs";
+      state.sortDirection = "desc";
       document.getElementById("searchInput").value = "";
       document.getElementById("clearSearchBtn").classList.add("hidden");
       renderAll();
