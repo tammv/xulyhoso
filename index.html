@@ -45,9 +45,12 @@
     #ledgerTableHead th.th-sticky-stt {
       left: 0;
       z-index: 45;
+      width: 58px;
+      min-width: 58px;
+      max-width: 58px;
     }
     #ledgerTableHead th.th-sticky-mhs {
-      left: 44px;
+      left: 58px;
       z-index: 45;
     }
 
@@ -61,10 +64,28 @@
     #quickAddTbody tr td.qa-sticky-stt {
       left: 0;
       z-index: 35;
+      width: 58px;
+      min-width: 58px;
+      max-width: 58px;
     }
     #quickAddTbody tr td.qa-sticky-mhs {
-      left: 44px;
+      left: 58px;
       z-index: 35;
+    }
+
+    /* 3. Cột STT & MHS trong các dòng dữ liệu */
+    .td-sticky-stt {
+      position: sticky;
+      left: 0;
+      z-index: 10;
+      width: 58px;
+      min-width: 58px;
+      max-width: 58px;
+    }
+    .td-sticky-mhs {
+      position: sticky;
+      left: 58px;
+      z-index: 10;
     }
 
     /* Viền ô bảng sắc nét và đồng đều */
@@ -331,6 +352,27 @@
           </span>
         </div>
         <div class="flex items-center gap-3 text-emerald-100">
+          <!-- Nhóm thao tác hàng loạt khi có tích chọn -->
+          <div id="batchActionHeaderGroup" class="hidden items-center gap-2">
+            <span class="px-2.5 py-0.5 rounded-full bg-amber-400 text-amber-950 font-bold text-[11px]" id="headerSelectedCountBadge">Đã chọn 0</span>
+            <button
+              type="button"
+              onclick="promptBatchDelete()"
+              class="px-2.5 py-1 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold shadow-2xs transition flex items-center gap-1 active:scale-95"
+              title="Xóa các hồ sơ đang được tích chọn"
+            >
+              <span>🗑 Xóa đã chọn</span>
+            </button>
+            <button
+              type="button"
+              onclick="clearAllSelections()"
+              class="text-[11px] text-emerald-200 hover:text-white underline cursor-pointer"
+            >
+              Bỏ chọn
+            </button>
+            <span class="text-emerald-500">•</span>
+          </div>
+
           <span id="tableCountSummary">Hiển thị 0 / 0 hồ sơ</span>
           <button type="button" onclick="toggleQuickAddRow()" id="toggleQuickAddBtn" class="underline hover:text-white font-medium">
             Ẩn dòng thêm nhanh
@@ -914,6 +956,7 @@
       sortBy: "mhs_desc",
       sortColumn: "mhs",
       sortDirection: "desc",
+      selectedDocIds: new Set(),
       activeDetailId: null,
       deleteTargetDocId: null,
       parsedImportRows: [],
@@ -1537,8 +1580,20 @@
 
       thead.innerHTML = `
         <tr class="bg-emerald-800 text-white shadow-2xs">
-          <th class="${thPad} th-sticky-stt text-center w-11 cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('mhs')" title="Bấm để sắp xếp theo STT / MHS">
-            <div class="inline-flex items-center justify-center"><span>STT</span>${getSortHeaderIcon('mhs')}</div>
+          <th class="${thPad} th-sticky-stt text-center cursor-pointer select-none group hover:bg-emerald-700 transition" title="Bấm để chọn tất cả hoặc sắp xếp STT">
+            <div class="flex items-center justify-center gap-1.5">
+              <input
+                type="checkbox"
+                id="selectAllCheckbox"
+                onchange="toggleSelectAllRows(this.checked)"
+                onclick="event.stopPropagation()"
+                class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer border-emerald-600/80 bg-white"
+                title="Chọn / Bỏ chọn tất cả các dòng đang hiển thị"
+              />
+              <span class="text-[10px] font-bold cursor-pointer inline-flex items-center" onclick="handleSortColumn('mhs')">
+                STT${getSortHeaderIcon('mhs')}
+              </span>
+            </div>
           </th>
           <th class="${thPad} th-sticky-mhs whitespace-nowrap cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('mhs')" title="Bấm để sắp xếp tăng/giảm theo Mã hồ sơ">
             <div class="inline-flex items-center"><span>MHS</span>${getSortHeaderIcon('mhs')}</div>
@@ -1648,12 +1703,21 @@
           const st = evaluateDocumentStatus(item);
           const isReturned = st.category === "returned";
           const isOverdue = st.category === "overdue";
-          const zebraBg = isOverdue
-            ? "bg-rose-50/45 hover:bg-rose-50/80"
-            : idx % 2 === 1
-              ? "bg-slate-50/60 hover:bg-emerald-50/50"
-              : "bg-white hover:bg-emerald-50/50";
-          const stickyBg = isOverdue ? "bg-rose-50" : idx % 2 === 1 ? "bg-slate-50" : "bg-white";
+          const isSelected = state.selectedDocIds.has(item.id);
+          const zebraBg = isSelected
+            ? "bg-amber-100/70 hover:bg-amber-100/90"
+            : isOverdue
+              ? "bg-rose-50/45 hover:bg-rose-50/80"
+              : idx % 2 === 1
+                ? "bg-slate-50/60 hover:bg-emerald-50/50"
+                : "bg-white hover:bg-emerald-50/50";
+          const stickyBg = isSelected
+            ? "bg-amber-100"
+            : isOverdue
+              ? "bg-rose-50"
+              : idx % 2 === 1
+                ? "bg-slate-50"
+                : "bg-white";
           const selectStyle = getRecipientBadgeStyle(item.recipient);
 
           const inlineRecipientSelect = `
@@ -1683,8 +1747,19 @@
 
           return `
             <tr onclick="openDetailModal('${item.id}')" ondblclick="requestEditDocumentWithAuth('${item.id}')" title="Bấm 1 lần: Xem chi tiết. Nhấp đúp: Sửa nhanh hồ sơ." class="cursor-pointer transition ${zebraBg}">
-              <td class="${cellPad} text-center font-medium text-slate-500 border border-slate-200 tabular-nums sticky left-0 z-10 ${stickyBg}">${idx + 1}</td>
-              <td class="${cellPad} font-mono font-bold text-slate-800 border border-slate-200 whitespace-nowrap sticky left-11 z-10 ${stickyBg}">
+              <td class="${cellPad} text-center font-medium text-slate-500 border border-slate-200 tabular-nums td-sticky-stt ${stickyBg}" onclick="event.stopPropagation()">
+                <div class="flex items-center justify-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    class="doc-checkbox w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer border-slate-300"
+                    onchange="toggleSelectRow('${item.id}', this.checked)"
+                    ${isSelected ? "checked" : ""}
+                    title="Tích chọn hồ sơ này"
+                  />
+                  <span class="text-[11px] text-slate-500 font-mono font-medium">${idx + 1}</span>
+                </div>
+              </td>
+              <td class="${cellPad} font-mono font-bold text-slate-800 border border-slate-200 whitespace-nowrap td-sticky-mhs ${stickyBg}">
                 <div class="flex items-center gap-1">
                   <span>${escapeHTML(item.mhs)}</span>
                   ${item.editCode ? '<span title="Hồ sơ có mã bảo mật chỉnh sửa" class="text-amber-600 text-[10px]">🔒</span>' : ''}
@@ -1721,6 +1796,7 @@
           `;
         })
         .join("");
+      syncSelectionUI();
     }
 
     function hasActiveFilters() {
@@ -2489,6 +2565,179 @@
     // -------------------------------------------------------------------------
     // 11. XÓA HỒ SƠ
     // -------------------------------------------------------------------------
+    
+    // -------------------------------------------------------------------------
+    // CHỌN HÀNG LOẠT & THAO TÁC XÓA HÀNG LOẠT
+    // -------------------------------------------------------------------------
+    window.toggleSelectRow = function (docId, isChecked) {
+      if (isChecked) {
+        state.selectedDocIds.add(docId);
+      } else {
+        state.selectedDocIds.delete(docId);
+      }
+      syncSelectionUI();
+    };
+
+    window.toggleSelectAllRows = function (isChecked) {
+      const rows = getProcessedDocuments();
+      if (isChecked) {
+        rows.forEach((r) => state.selectedDocIds.add(r.id));
+      } else {
+        rows.forEach((r) => state.selectedDocIds.delete(r.id));
+      }
+      renderLedgerTable();
+    };
+
+    window.clearAllSelections = function () {
+      state.selectedDocIds.clear();
+      renderLedgerTable();
+    };
+
+    function syncSelectionUI() {
+      const selectedCount = state.selectedDocIds.size;
+      const rows = getProcessedDocuments();
+      const visibleCount = rows.length;
+
+      // Cập nhật floating toolbar
+      const floatBar = document.getElementById("batchActionBar");
+      const floatCount = document.getElementById("batchSelectedCount");
+      if (floatBar && floatCount) {
+        floatCount.textContent = selectedCount;
+        floatBar.classList.toggle("hidden", selectedCount === 0);
+      }
+
+      // Cập nhật header group
+      const headerGroup = document.getElementById("batchActionHeaderGroup");
+      const headerBadge = document.getElementById("headerSelectedCountBadge");
+      if (headerGroup && headerBadge) {
+        headerBadge.textContent = `Đã chọn ${selectedCount}`;
+        if (selectedCount > 0) {
+          headerGroup.classList.remove("hidden");
+          headerGroup.classList.add("flex");
+        } else {
+          headerGroup.classList.add("hidden");
+          headerGroup.classList.remove("flex");
+        }
+      }
+
+      // Cập nhật trạng thái selectAllCheckbox (checked / indeterminate)
+      const selectAllEl = document.getElementById("selectAllCheckbox");
+      if (selectAllEl) {
+        if (visibleCount === 0 || selectedCount === 0) {
+          selectAllEl.checked = false;
+          selectAllEl.indeterminate = false;
+        } else {
+          const allVisibleSelected = rows.every((r) => state.selectedDocIds.has(r.id));
+          const someVisibleSelected = rows.some((r) => state.selectedDocIds.has(r.id));
+          selectAllEl.checked = allVisibleSelected;
+          selectAllEl.indeterminate = !allVisibleSelected && someVisibleSelected;
+        }
+      }
+    }
+
+    window.promptBatchDelete = function () {
+      const selectedIds = Array.from(state.selectedDocIds);
+      if (selectedIds.length === 0) {
+        showToast("Vui lòng tích chọn ít nhất 1 hồ sơ để xóa.", "warning");
+        return;
+      }
+
+      const selectedDocs = state.documents.filter((d) => state.selectedDocIds.has(d.id));
+      const count = selectedDocs.length;
+
+      document.getElementById("batchDeleteTitle").textContent = `Xóa ${count} hồ sơ đã chọn?`;
+      document.getElementById("batchDeleteDesc").textContent = `Hành động này sẽ xóa vĩnh viễn ${count} hồ sơ khỏi sổ theo dõi và toàn bộ lịch sử luân chuyển liên quan.`;
+
+      const listEl = document.getElementById("batchDeleteListPreview");
+      listEl.innerHTML = selectedDocs
+        .slice(0, 20)
+        .map(
+          (d) => `
+            <div class="flex items-center justify-between py-1 border-b border-slate-200/60 last:border-0">
+              <span class="font-mono font-bold text-slate-800">${escapeHTML(d.mhs)}</span>
+              <span class="text-slate-600 truncate max-w-[240px] ml-2">${escapeHTML(d.title)}</span>
+            </div>
+          `
+        )
+        .join("") +
+        (selectedDocs.length > 20
+          ? `<div class="text-[11px] text-slate-400 italic pt-1 text-center">...và ${selectedDocs.length - 20} hồ sơ khác</div>`
+          : "");
+
+      // Kiểm tra xem có hồ sơ nào có mã bảo mật chưa mở khóa không
+      const lockedDocs = selectedDocs.filter((d) => {
+        const code = String(d.editCode || "").trim();
+        return code && !state.unlockedDocIds.has(d.id);
+      });
+
+      const passcodeBlock = document.getElementById("batchDeletePasscodePrompt");
+      const passcodeInput = document.getElementById("batchDeletePasscodeInput");
+      const passcodeError = document.getElementById("batchDeletePasscodeError");
+      if (lockedDocs.length > 0) {
+        passcodeBlock.classList.remove("hidden");
+        passcodeInput.value = "";
+        passcodeError.classList.add("hidden");
+      } else {
+        passcodeBlock.classList.add("hidden");
+      }
+
+      document.getElementById("batchDeleteModal").classList.remove("hidden");
+    };
+
+    window.closeBatchDeleteModal = function () {
+      document.getElementById("batchDeleteModal").classList.add("hidden");
+    };
+
+    window.executeBatchDelete = async function () {
+      const selectedDocs = state.documents.filter((d) => state.selectedDocIds.has(d.id));
+      if (selectedDocs.length === 0) {
+        closeBatchDeleteModal();
+        return;
+      }
+
+      const lockedDocs = selectedDocs.filter((d) => {
+        const code = String(d.editCode || "").trim();
+        return code && !state.unlockedDocIds.has(d.id);
+      });
+
+      if (lockedDocs.length > 0) {
+        const entered = (document.getElementById("batchDeletePasscodeInput")?.value || "").trim();
+        const invalid = lockedDocs.find((d) => String(d.editCode || "").trim() !== entered);
+        if (!entered || invalid) {
+          const err = document.getElementById("batchDeletePasscodeError");
+          if (err) {
+            err.textContent = "Mã bảo mật không chính xác hoặc không đủ quyền xóa các hồ sơ có khóa!";
+            err.classList.remove("hidden");
+          }
+          return;
+        }
+      }
+
+      const btnConfirm = document.getElementById("btnConfirmBatchDelete");
+      if (btnConfirm) {
+        btnConfirm.disabled = true;
+        btnConfirm.textContent = "Đang xóa...";
+      }
+
+      const count = selectedDocs.length;
+      try {
+        for (const doc of selectedDocs) {
+          await removeDocumentById(doc.id);
+        }
+        state.selectedDocIds.clear();
+        closeBatchDeleteModal();
+        showToast(`Đã xóa thành công ${count} hồ sơ được chọn!`, "success");
+      } catch (err) {
+        console.error("Lỗi xóa hàng loạt:", err);
+        showToast("Có lỗi xảy ra khi xóa hàng loạt hồ sơ.", "error");
+      } finally {
+        if (btnConfirm) {
+          btnConfirm.disabled = false;
+          btnConfirm.textContent = "Xác nhận xóa";
+        }
+      }
+    };
+
     window.promptDeleteDocument = function (docId) {
       const item = state.documents.find((d) => d.id === docId);
       if (!item) return;
@@ -3153,5 +3402,66 @@
       initDataLayer();
     });
   </script>
+
+  <!-- ==================== THANH THAO TÁC HÀNG LOẠT NỔI (FLOATING BATCH ACTION BAR) ==================== -->
+  <div id="batchActionBar" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-4 border border-slate-700 backdrop-blur-md transition-all animate-in fade-in slide-in-from-bottom-4">
+    <div class="flex items-center gap-2">
+      <span class="w-6 h-6 rounded-full bg-emerald-500 text-slate-900 font-bold text-xs flex items-center justify-center shadow-xs" id="batchSelectedCount">0</span>
+      <span class="text-xs font-semibold">hồ sơ đã chọn</span>
+    </div>
+    <div class="h-4 w-px bg-slate-700"></div>
+    <button
+      type="button"
+      onclick="promptBatchDelete()"
+      class="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+      title="Xóa vĩnh viễn các hồ sơ đã chọn"
+    >
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+      </svg>
+      <span>Xóa hàng loạt</span>
+    </button>
+    <button
+      type="button"
+      onclick="clearAllSelections()"
+      class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium transition cursor-pointer"
+    >
+      Bỏ chọn
+    </button>
+  </div>
+
+  <!-- ==================== MODAL XÁC NHẬN XÓA HÀNG LOẠT ==================== -->
+  <div id="batchDeleteModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-4 flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95">
+      <div class="p-6 text-center">
+        <div class="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 mx-auto flex items-center justify-center mb-3 shadow-inner">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </div>
+        <h3 class="text-base font-bold text-slate-900" id="batchDeleteTitle">Xóa hàng loạt hồ sơ?</h3>
+        <p class="text-xs text-slate-500 mt-1" id="batchDeleteDesc">Hành động này sẽ xóa vĩnh viễn các hồ sơ đã chọn và toàn bộ lịch sử luân chuyển liên quan.</p>
+
+        <div class="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-200 text-left text-xs max-h-44 overflow-y-auto" id="batchDeleteListPreview">
+          <!-- Danh sách các MHS và tiêu đề hồ sơ sẽ xóa -->
+        </div>
+
+        <div id="batchDeletePasscodePrompt" class="hidden mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-left text-xs space-y-1.5">
+          <p class="font-semibold text-amber-900">Trong danh sách có hồ sơ có mã bảo mật. Vui lòng nhập mã bảo vệ để xác nhận:</p>
+          <input type="password" id="batchDeletePasscodeInput" placeholder="Nhập mã bảo mật..." class="w-full px-2.5 py-1.5 text-xs bg-white border border-amber-300 rounded-lg focus:outline-none focus:border-amber-600" />
+          <p id="batchDeletePasscodeError" class="hidden text-[11px] text-rose-600 font-medium">Mã không chính xác hoặc không đủ quyền xóa các hồ sơ có khóa.</p>
+        </div>
+      </div>
+
+      <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+        <button type="button" onclick="closeBatchDeleteModal()" class="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 bg-slate-200 hover:bg-slate-300 transition">
+          Hủy bỏ
+        </button>
+        <button type="button" id="btnConfirmBatchDelete" onclick="executeBatchDelete()" class="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 shadow-xs transition">
+          Xác nhận xóa
+        </button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
