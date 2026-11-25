@@ -45,13 +45,15 @@
     #ledgerTableHead th.th-sticky-stt {
       left: 0;
       z-index: 45;
-      width: 58px;
-      min-width: 58px;
-      max-width: 58px;
+      width: 48px;
+      min-width: 48px;
+      max-width: 48px;
     }
     #ledgerTableHead th.th-sticky-mhs {
-      left: 58px;
+      left: 48px;
       z-index: 45;
+      width: 70px;
+      min-width: 70px;
     }
 
     /* 2. Hàng thêm nhanh (+Mới): Ghim liền kề ngay dưới hàng tiêu đề */
@@ -64,13 +66,15 @@
     #quickAddTbody tr td.qa-sticky-stt {
       left: 0;
       z-index: 35;
-      width: 58px;
-      min-width: 58px;
-      max-width: 58px;
+      width: 48px;
+      min-width: 48px;
+      max-width: 48px;
     }
     #quickAddTbody tr td.qa-sticky-mhs {
-      left: 58px;
+      left: 48px;
       z-index: 35;
+      width: 70px;
+      min-width: 70px;
     }
 
     /* 3. Cột STT & MHS trong các dòng dữ liệu */
@@ -78,14 +82,16 @@
       position: sticky;
       left: 0;
       z-index: 10;
-      width: 58px;
-      min-width: 58px;
-      max-width: 58px;
+      width: 48px;
+      min-width: 48px;
+      max-width: 48px;
     }
     .td-sticky-mhs {
       position: sticky;
-      left: 58px;
+      left: 48px;
       z-index: 10;
+      width: 70px;
+      min-width: 70px;
     }
 
     /* Viền ô bảng sắc nét và đồng đều */
@@ -113,7 +119,7 @@
 
   <!-- ==================== 1. HEADER & THANH CÔNG CỤ ==================== -->
   <header class="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-2xs">
-    <div class="max-w-[1680px] mx-auto px-3 sm:px-5 py-2.5">
+    <div class="w-full px-2.5 sm:px-4 py-2">
       <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-2.5">
         <!-- Nhận diện hệ thống & Trạng thái đồng bộ -->
         <div class="flex items-center justify-between gap-3">
@@ -186,7 +192,7 @@
   </header>
 
   <!-- ==================== 2. NỘI DUNG CHÍNH (TABLE-FIRST LEDGER) ==================== -->
-  <main class="max-w-[1680px] mx-auto px-3 sm:px-5 py-3.5 space-y-3 flex-1 w-full">
+  <main class="w-full px-2.5 sm:px-4 py-2.5 space-y-2.5 flex-1">
 
     <!-- THANH KPI TÓM TẮT SIÊU GỌN (4 THẺ NGANG) -->
     <section aria-label="Tóm tắt số liệu" class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
@@ -380,7 +386,7 @@
         </div>
       </div>
 
-      <div class="overflow-x-auto overflow-y-auto max-h-[calc(100vh-275px)] min-h-[380px] relative">
+      <div class="overflow-x-auto overflow-y-auto max-h-[calc(100vh-250px)] min-h-[380px] relative">
         <table id="ledgerTable" class="w-full border-separate border-spacing-0 text-left">
           <thead id="ledgerTableHead" class="sticky top-0 z-20 select-none shadow-2xs"></thead>
           <tbody id="quickAddTbody" class="bg-amber-50/70 border-b-2 border-emerald-600/40"></tbody>
@@ -1569,10 +1575,10 @@
 
       document.getElementById("tableCountSummary").textContent = `Hiển thị ${rows.length} / ${state.documents.length} hồ sơ`;
 
-      const cellPad = state.rowDensity === "compact" ? "py-1.5 px-2.5 text-xs" : "py-2.5 px-3 text-[13px]";
-      const thPad = "py-2 px-2.5 text-[11px] font-bold uppercase tracking-wider border border-emerald-700/60";
+      const cellPad = state.rowDensity === "compact" ? "py-1 px-1.5 text-xs" : "py-2 px-2 text-[12.5px]";
+      const thPad = "py-1.5 px-1.5 text-[10px] font-bold uppercase tracking-tight border border-emerald-700/60";
       const nextMhsSuggestion = generateNextMHS();
-            const todayISO = getTodayLocalISO();
+      const todayISO = getTodayLocalISO();
 
       const recipientOptionsHTML = state.recipients.map(
         (opt) => `<option value="${escapeHTML(opt)}" ${opt === "GM" ? "selected" : ""}>${escapeHTML(opt)}</option>`
@@ -1581,49 +1587,49 @@
       thead.innerHTML = `
         <tr class="bg-emerald-800 text-white shadow-2xs">
           <th class="${thPad} th-sticky-stt text-center cursor-pointer select-none group hover:bg-emerald-700 transition" title="Bấm để chọn tất cả hoặc sắp xếp STT">
-            <div class="flex items-center justify-center gap-1.5">
+            <div class="flex items-center justify-center gap-1">
               <input
                 type="checkbox"
                 id="selectAllCheckbox"
                 onchange="toggleSelectAllRows(this.checked)"
                 onclick="event.stopPropagation()"
-                class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer border-emerald-600/80 bg-white"
+                class="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer border-emerald-600/80 bg-white"
                 title="Chọn / Bỏ chọn tất cả các dòng đang hiển thị"
               />
-              <span class="text-[10px] font-bold cursor-pointer inline-flex items-center" onclick="handleSortColumn('mhs')">
-                STT${getSortHeaderIcon('mhs')}
+              <span class="text-[9px] font-bold cursor-pointer inline-flex items-center" onclick="handleSortColumn('mhs')">
+                STT
               </span>
             </div>
           </th>
           <th class="${thPad} th-sticky-mhs whitespace-nowrap cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('mhs')" title="Bấm để sắp xếp tăng/giảm theo Mã hồ sơ">
             <div class="inline-flex items-center"><span>MHS</span>${getSortHeaderIcon('mhs')}</div>
           </th>
-          <th class="${thPad} min-w-[240px] cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('title')" title="Bấm để sắp xếp A-Z / Z-A theo Tên hồ sơ">
+          <th class="${thPad} min-w-[160px] max-w-[280px] cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('title')" title="Bấm để sắp xếp A-Z / Z-A theo Tên hồ sơ">
             <div class="flex items-center justify-between"><span>Tên hồ sơ / Nội dung</span>${getSortHeaderIcon('title')}</div>
           </th>
-          <th class="${thPad} min-w-[140px] cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('supplier')" title="Bấm để sắp xếp theo Nhà cung cấp">
+          <th class="${thPad} min-w-[95px] max-w-[130px] cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('supplier')" title="Bấm để sắp xếp theo Nhà cung cấp">
             <div class="flex items-center justify-between"><span>Nhà cung cấp</span>${getSortHeaderIcon('supplier')}</div>
           </th>
-          <th class="${thPad} whitespace-nowrap min-w-[150px] cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('recipient')" title="Bấm để sắp xếp theo Nơi nhận">
-            <div class="flex items-center justify-between"><span>Nơi / Người nhận</span>${getSortHeaderIcon('recipient')}</div>
+          <th class="${thPad} whitespace-nowrap w-[95px] max-w-[105px] cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('recipient')" title="Bấm để sắp xếp theo Nơi nhận">
+            <div class="flex items-center justify-between"><span>Nơi nhận</span>${getSortHeaderIcon('recipient')}</div>
           </th>
-          <th class="${thPad} whitespace-nowrap cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('sentDate')" title="Bấm để sắp xếp theo Ngày gửi">
-            <div class="inline-flex items-center"><span>Ngày gửi</span>${getSortHeaderIcon('sentDate')}</div>
+          <th class="${thPad} whitespace-nowrap w-[75px] text-center cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('sentDate')" title="Bấm để sắp xếp theo Ngày gửi">
+            <div class="inline-flex items-center justify-center"><span>Ngày gửi</span>${getSortHeaderIcon('sentDate')}</div>
           </th>
-          <th class="${thPad} whitespace-nowrap cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('sender')" title="Bấm để sắp xếp theo Người gửi">
-            <div class="inline-flex items-center"><span>Người gửi</span>${getSortHeaderIcon('sender')}</div>
+          <th class="${thPad} whitespace-nowrap w-[78px] text-center cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('sender')" title="Bấm để sắp xếp theo Người gửi">
+            <div class="inline-flex items-center justify-center"><span>Người gửi</span>${getSortHeaderIcon('sender')}</div>
           </th>
-          <th class="${thPad} whitespace-nowrap cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('returnDate')" title="Bấm để sắp xếp theo Ngày trả lại">
-            <div class="inline-flex items-center"><span>Ngày trả lại</span>${getSortHeaderIcon('returnDate')}</div>
+          <th class="${thPad} whitespace-nowrap w-[75px] text-center cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('returnDate')" title="Bấm để sắp xếp theo Ngày trả lại">
+            <div class="inline-flex items-center justify-center"><span>Ngày trả</span>${getSortHeaderIcon('returnDate')}</div>
           </th>
-          <th class="${thPad} whitespace-nowrap cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('dueDate')" title="Bấm để sắp xếp theo Ngày hạn">
-            <div class="inline-flex items-center"><span>Ngày hạn</span>${getSortHeaderIcon('dueDate')}</div>
+          <th class="${thPad} whitespace-nowrap w-[75px] text-center cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('dueDate')" title="Bấm để sắp xếp theo Ngày hạn">
+            <div class="inline-flex items-center justify-center"><span>Ngày hạn</span>${getSortHeaderIcon('dueDate')}</div>
           </th>
-          <th class="${thPad} whitespace-nowrap cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('status')" title="Bấm để sắp xếp theo Trạng thái hồ sơ">
-            <div class="inline-flex items-center"><span>Trạng thái</span>${getSortHeaderIcon('status')}</div>
+          <th class="${thPad} whitespace-nowrap w-[88px] text-center cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('status')" title="Bấm để sắp xếp theo Trạng thái hồ sơ">
+            <div class="inline-flex items-center justify-center"><span>Trạng thái</span>${getSortHeaderIcon('status')}</div>
           </th>
-          <th class="${thPad} text-center whitespace-nowrap">Hành động</th>
-          <th class="${thPad} min-w-[130px] cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('note')" title="Bấm để sắp xếp theo Ghi chú">
+          <th class="${thPad} text-center whitespace-nowrap w-[88px]">Hành động</th>
+          <th class="${thPad} min-w-[95px] max-w-[150px] cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('note')" title="Bấm để sắp xếp theo Ghi chú">
             <div class="flex items-center justify-between"><span>Ghi chú</span>${getSortHeaderIcon('note')}</div>
           </th>
         </tr>
@@ -1632,39 +1638,39 @@
       quickAddTbody.classList.toggle("hidden", !state.showQuickAdd);
       quickAddTbody.innerHTML = `
         <tr onkeydown="handleQuickAddKeydown(event)" class="shadow-2xs">
-          <td class="py-1.5 px-2 qa-sticky-stt text-center text-[11px] font-bold text-amber-800">+Mới</td>
-          <td class="py-1.5 px-1.5 qa-sticky-mhs">
-            <input type="text" id="qaMhs" value="${escapeHTML(nextMhsSuggestion)}" class="w-20 px-1.5 py-1 text-xs font-mono font-semibold bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="MHS" />
+          <td class="py-1 px-1 qa-sticky-stt text-center text-[10px] font-bold text-amber-800">+Mới</td>
+          <td class="py-1 px-1 qa-sticky-mhs">
+            <input type="text" id="qaMhs" value="${escapeHTML(nextMhsSuggestion)}" class="w-full px-1 py-0.5 text-xs font-mono font-semibold bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="MHS" />
           </td>
-          <td class="py-1.5 px-1.5">
-            <input type="text" id="qaTitle" class="w-full min-w-[200px] px-2 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="Nhập tên hồ sơ / nội dung chứng từ..." />
+          <td class="py-1 px-1">
+            <input type="text" id="qaTitle" class="w-full min-w-[150px] px-1.5 py-0.5 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="Tên hồ sơ / nội dung chứng từ..." />
           </td>
-          <td class="py-1.5 px-1.5">
-            <input type="text" id="qaSupplier" class="w-full min-w-[120px] px-2 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="Nhà cung cấp..." />
+          <td class="py-1 px-1">
+            <input type="text" id="qaSupplier" class="w-full min-w-[85px] px-1.5 py-0.5 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="Nhà cung cấp..." />
           </td>
-          <td class="py-1.5 px-1.5">
-            <select id="qaRecipient" class="w-full px-1.5 py-1 text-xs font-medium bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600">
+          <td class="py-1 px-1">
+            <select id="qaRecipient" class="w-full max-w-[105px] px-1 py-0.5 text-[11px] font-medium bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600">
               ${recipientOptionsHTML}
             </select>
           </td>
-          <td class="py-1.5 px-1.5">
-            <input type="date" id="qaSentDate" value="${todayISO}" class="px-1.5 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" />
+          <td class="py-1 px-1">
+            <input type="date" id="qaSentDate" value="${todayISO}" class="w-full max-w-[108px] px-1 py-0.5 text-[11px] bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" />
           </td>
-          <td class="py-1.5 px-1.5">
-            <input type="text" id="qaSender" list="senderSuggestions" class="w-24 px-2 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="Người gửi" />
+          <td class="py-1 px-1">
+            <input type="text" id="qaSender" list="senderSuggestions" class="w-full max-w-[75px] px-1 py-0.5 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="Người gửi" />
           </td>
-          <td class="py-1.5 px-1.5 text-center text-[11px] text-slate-400">—</td>
-          <td class="py-1.5 px-1.5">
-            <input type="date" id="qaDueDate" value="" title="Ngày hạn (không bắt buộc)" class="px-1.5 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" />
+          <td class="py-1 px-1 text-center text-[11px] text-slate-400">—</td>
+          <td class="py-1 px-1">
+            <input type="date" id="qaDueDate" value="" title="Ngày hạn (không bắt buộc)" class="w-full max-w-[108px] px-1 py-0.5 text-[11px] bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" />
           </td>
-          <td class="py-1.5 px-1.5 text-center text-[11px] text-slate-400 font-medium">Tự động</td>
-          <td class="py-1.5 px-2 text-center whitespace-nowrap">
-            <button type="button" onclick="submitQuickAddRow()" class="px-2.5 py-1 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shadow-2xs transition">
-              + Lưu dòng
+          <td class="py-1 px-1 text-center text-[10px] text-slate-400 font-medium">Tự động</td>
+          <td class="py-1 px-1 text-center whitespace-nowrap">
+            <button type="button" onclick="submitQuickAddRow()" class="px-2 py-0.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-semibold shadow-2xs transition">
+              + Lưu
             </button>
           </td>
-          <td class="py-1.5 px-1.5">
-            <input type="text" id="qaNote" class="w-full min-w-[110px] px-2 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="Ghi chú..." />
+          <td class="py-1 px-1">
+            <input type="text" id="qaNote" class="w-full min-w-[85px] px-1.5 py-0.5 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="Ghi chú..." />
           </td>
         </tr>
       `;
@@ -1724,8 +1730,8 @@
             <select
               onclick="event.stopPropagation()"
               onchange="handleInlineRecipientChange('${item.id}', this.value)"
-              aria-label="Đổi nơi/người nhận"
-              class="w-full px-2 py-1 rounded-md text-xs font-semibold border cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-600/30 ${selectStyle}"
+              aria-label="Đổi nơi nhận"
+              class="w-full max-w-[100px] px-1 py-0.5 rounded text-[11px] font-semibold border cursor-pointer focus:outline-none focus:ring-1 focus:ring-emerald-600/30 ${selectStyle}"
             >
               ${state.recipients.map(
                 (opt) => `<option value="${escapeHTML(opt)}" ${opt === item.recipient ? "selected" : ""}>${escapeHTML(opt)}</option>`
@@ -1739,24 +1745,24 @@
                 type="button"
                 onclick="event.stopPropagation(); markReturnedOneClick('${item.id}')"
                 title="Đánh dấu đã trả lại hồ sơ hôm nay"
-                class="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold transition whitespace-nowrap"
+                class="px-1.5 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10.5px] font-semibold transition whitespace-nowrap"
               >
-                ✓ Trả HS
+                ✓ Trả
               </button>`
-            : `<span class="text-[11px] text-emerald-700 font-semibold px-1.5">Đã trả</span>`;
+            : `<span class="text-[10px] text-emerald-700 font-semibold px-1">Đã trả</span>`;
 
           return `
             <tr onclick="openDetailModal('${item.id}')" ondblclick="requestEditDocumentWithAuth('${item.id}')" title="Bấm 1 lần: Xem chi tiết. Nhấp đúp: Sửa nhanh hồ sơ." class="cursor-pointer transition ${zebraBg}">
               <td class="${cellPad} text-center font-medium text-slate-500 border border-slate-200 tabular-nums td-sticky-stt ${stickyBg}" onclick="event.stopPropagation()">
-                <div class="flex items-center justify-center gap-1.5">
+                <div class="flex items-center justify-center gap-1">
                   <input
                     type="checkbox"
-                    class="doc-checkbox w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer border-slate-300"
+                    class="doc-checkbox w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer border-slate-300"
                     onchange="toggleSelectRow('${item.id}', this.checked)"
                     ${isSelected ? "checked" : ""}
                     title="Tích chọn hồ sơ này"
                   />
-                  <span class="text-[11px] text-slate-500 font-mono font-medium">${idx + 1}</span>
+                  <span class="text-[10.5px] text-slate-500 font-mono font-medium">${idx + 1}</span>
                 </div>
               </td>
               <td class="${cellPad} font-mono font-bold text-slate-800 border border-slate-200 whitespace-nowrap td-sticky-mhs ${stickyBg}">
@@ -1765,20 +1771,20 @@
                   ${item.editCode ? '<span title="Hồ sơ có mã bảo mật chỉnh sửa" class="text-amber-600 text-[10px]">🔒</span>' : ''}
                 </div>
               </td>
-              <td class="${cellPad} font-semibold text-slate-900 border border-slate-200">${escapeHTML(item.title)}</td>
-              <td class="${cellPad} text-slate-700 font-medium border border-slate-200">${escapeHTML(item.supplier)}</td>
+              <td class="${cellPad} font-semibold text-slate-900 border border-slate-200 max-w-[280px]" title="${escapeHTML(item.title)}">${escapeHTML(item.title)}</td>
+              <td class="${cellPad} text-slate-700 font-medium border border-slate-200 max-w-[130px] truncate" title="${escapeHTML(item.supplier)}">${escapeHTML(item.supplier)}</td>
               <td class="${cellPad} border border-slate-200 whitespace-nowrap">${inlineRecipientSelect}</td>
-              <td class="${cellPad} text-slate-600 border border-slate-200 whitespace-nowrap tabular-nums">${formatDateVN(item.sentDate) || "—"}</td>
-              <td class="${cellPad} text-slate-800 font-medium border border-slate-200 whitespace-nowrap" onclick="event.stopPropagation(); promptEditSender('${item.id}')" title="Bấm để sửa nhanh người gửi">
-                <div class="flex items-center justify-between gap-1 group cursor-pointer hover:text-emerald-700">
+              <td class="${cellPad} text-slate-600 border border-slate-200 whitespace-nowrap tabular-nums text-center">${formatDateVN(item.sentDate) || "—"}</td>
+              <td class="${cellPad} text-slate-800 font-medium border border-slate-200 whitespace-nowrap text-center max-w-[85px]" onclick="event.stopPropagation(); promptEditSender('${item.id}')" title="Bấm để sửa nhanh người gửi">
+                <div class="flex items-center justify-center gap-1 group cursor-pointer hover:text-emerald-700">
                   <span class="truncate">${escapeHTML(item.sender || "—")}</span>
-                  <span class="text-[10px] text-slate-400 group-hover:text-emerald-600 opacity-0 group-hover:opacity-100 transition shrink-0">✎</span>
+                  <span class="text-[9px] text-slate-400 group-hover:text-emerald-600 opacity-0 group-hover:opacity-100 transition shrink-0">✎</span>
                 </div>
               </td>
-              <td class="${cellPad} border border-slate-200 whitespace-nowrap tabular-nums ${item.returnDate ? "text-emerald-700 font-semibold" : "text-slate-400"}">${formatDateVN(item.returnDate) || "—"}</td>
-              <td class="${cellPad} border border-slate-200 whitespace-nowrap tabular-nums ${isOverdue ? "text-rose-600 font-bold" : "text-slate-700"}">${formatDateVN(item.dueDate) || "—"}</td>
-              <td class="${cellPad} border border-slate-200 whitespace-nowrap">
-                <span class="inline-block px-2 py-0.5 rounded text-[11px] border ${st.badgeClass}">${escapeHTML(st.label)}</span>
+              <td class="${cellPad} border border-slate-200 whitespace-nowrap tabular-nums text-center ${item.returnDate ? "text-emerald-700 font-semibold" : "text-slate-400"}">${formatDateVN(item.returnDate) || "—"}</td>
+              <td class="${cellPad} border border-slate-200 whitespace-nowrap tabular-nums text-center ${isOverdue ? "text-rose-600 font-bold" : "text-slate-700"}">${formatDateVN(item.dueDate) || "—"}</td>
+              <td class="${cellPad} border border-slate-200 whitespace-nowrap text-center">
+                <span class="inline-block px-1.5 py-0.5 rounded text-[10.5px] border ${st.badgeClass}">${escapeHTML(st.label)}</span>
               </td>
               <td class="${cellPad} border border-slate-200 text-center whitespace-nowrap" onclick="event.stopPropagation()">
                 <div class="inline-flex items-center justify-center gap-1">
@@ -1791,7 +1797,7 @@
                   </button>
                 </div>
               </td>
-              <td class="${cellPad} text-slate-600 border border-slate-200 max-w-[200px] truncate" title="${escapeHTML(item.note)}">${escapeHTML(item.note) || ""}</td>
+              <td class="${cellPad} text-slate-600 border border-slate-200 max-w-[160px] truncate" title="${escapeHTML(item.note)}">${escapeHTML(item.note) || ""}</td>
             </tr>
           `;
         })
