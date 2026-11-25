@@ -1622,10 +1622,10 @@
           <th class="${thPad} whitespace-nowrap cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('status')" title="Bấm để sắp xếp theo Trạng thái hồ sơ">
             <div class="inline-flex items-center"><span>Trạng thái</span>${getSortHeaderIcon('status')}</div>
           </th>
-          <th class="${thPad} min-w-[130px] cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('note')" title="Bấm để sắp xếp theo Lưu ý">
-            <div class="flex items-center justify-between"><span>Lưu ý</span>${getSortHeaderIcon('note')}</div>
+          <th class="${thPad} text-center whitespace-nowrap">Hành động</th>
+          <th class="${thPad} min-w-[130px] cursor-pointer select-none group hover:bg-emerald-700 transition" onclick="handleSortColumn('note')" title="Bấm để sắp xếp theo Ghi chú">
+            <div class="flex items-center justify-between"><span>Ghi chú</span>${getSortHeaderIcon('note')}</div>
           </th>
-          <th class="${thPad} text-right whitespace-nowrap">Thao tác</th>
         </tr>
       `;
 
@@ -1658,13 +1658,13 @@
             <input type="date" id="qaDueDate" value="" title="Ngày hạn (không bắt buộc)" class="px-1.5 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" />
           </td>
           <td class="py-1.5 px-1.5 text-center text-[11px] text-slate-400 font-medium">Tự động</td>
-          <td class="py-1.5 px-1.5">
-            <input type="text" id="qaNote" class="w-full min-w-[110px] px-2 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="Lưu ý..." />
-          </td>
-          <td class="py-1.5 px-2 text-right whitespace-nowrap">
+          <td class="py-1.5 px-2 text-center whitespace-nowrap">
             <button type="button" onclick="submitQuickAddRow()" class="px-2.5 py-1 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shadow-2xs transition">
               + Lưu dòng
             </button>
+          </td>
+          <td class="py-1.5 px-1.5">
+            <input type="text" id="qaNote" class="w-full min-w-[110px] px-2 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" placeholder="Ghi chú..." />
           </td>
         </tr>
       `;
@@ -1780,9 +1780,8 @@
               <td class="${cellPad} border border-slate-200 whitespace-nowrap">
                 <span class="inline-block px-2 py-0.5 rounded text-[11px] border ${st.badgeClass}">${escapeHTML(st.label)}</span>
               </td>
-              <td class="${cellPad} text-slate-600 border border-slate-200 max-w-[180px] truncate" title="${escapeHTML(item.note)}">${escapeHTML(item.note) || ""}</td>
-              <td class="${cellPad} border border-slate-200 text-right whitespace-nowrap">
-                <div class="inline-flex items-center justify-end gap-1">
+              <td class="${cellPad} border border-slate-200 text-center whitespace-nowrap" onclick="event.stopPropagation()">
+                <div class="inline-flex items-center justify-center gap-1">
                   ${quickReturnBtn}
                   <button type="button" onclick="event.stopPropagation(); requestEditDocumentWithAuth('${item.id}')" class="p-1 rounded text-slate-600 hover:text-slate-900 hover:bg-slate-200/70" title="Chỉnh sửa (Yêu cầu mã)">
                     ✎
@@ -1792,6 +1791,7 @@
                   </button>
                 </div>
               </td>
+              <td class="${cellPad} text-slate-600 border border-slate-200 max-w-[200px] truncate" title="${escapeHTML(item.note)}">${escapeHTML(item.note) || ""}</td>
             </tr>
           `;
         })
