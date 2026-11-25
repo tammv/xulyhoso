@@ -363,6 +363,14 @@
             <span class="px-2.5 py-0.5 rounded-full bg-amber-400 text-amber-950 font-bold text-[11px]" id="headerSelectedCountBadge">Đã chọn 0</span>
             <button
               type="button"
+              onclick="exportToXLSX('selected')"
+              class="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold shadow-2xs transition flex items-center gap-1 active:scale-95"
+              title="Xuất file Excel chỉ gồm các hồ sơ đang tích chọn"
+            >
+              <span>📥 Xuất đã chọn</span>
+            </button>
+            <button
+              type="button"
               onclick="promptBatchDelete()"
               class="px-2.5 py-1 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold shadow-2xs transition flex items-center gap-1 active:scale-95"
               title="Xóa các hồ sơ đang được tích chọn"
@@ -400,6 +408,22 @@
         <button type="button" id="emptyStateResetBtn" onclick="resetAllFilters()" class="mt-3 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition">
           Hiển thị toàn bộ hồ sơ
         </button>
+      </div>
+
+      <!-- Thanh phân trang gọn gàng ở chân bảng -->
+      <div id="paginationBar" class="px-3.5 py-2 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
+        <div class="flex items-center gap-2">
+          <span id="paginationInfoText">Đang xem 0 / 0 hồ sơ</span>
+          <span class="text-slate-300">|</span>
+          <label for="pageSizeSelect" class="text-[11px] text-slate-500">Hiển thị:</label>
+          <select id="pageSizeSelect" onchange="changePageSize(this.value)" class="px-2 py-1 text-xs font-semibold bg-white border border-slate-300 rounded-md focus:outline-none focus:border-emerald-600 cursor-pointer">
+            <option value="50">50 dòng / trang</option>
+            <option value="100" selected>100 dòng / trang</option>
+            <option value="200">200 dòng / trang</option>
+            <option value="all">Tất cả</option>
+          </select>
+        </div>
+        <div id="paginationButtons" class="flex items-center gap-1"></div>
       </div>
     </section>
 
@@ -443,6 +467,15 @@
                 title="Tạo mã PIN 4 số"
               >
                 🎲 Tạo mã
+              </button>
+              <button
+                type="button"
+                id="btnClearEditCodeInForm"
+                onclick="clearEditCodeInForm()"
+                class="hidden px-2 py-1.5 text-xs font-semibold text-rose-700 bg-rose-100 hover:bg-rose-200 rounded-lg whitespace-nowrap transition"
+                title="Gỡ bỏ mã bảo mật khỏi hồ sơ này"
+              >
+                Gỡ mã
               </button>
             </div>
           </div>
@@ -713,6 +746,14 @@
       </div>
 
       <div class="space-y-2.5 text-xs">
+        <button type="button" id="btnExportSelectedOption" onclick="exportToXLSX('selected')" class="w-full p-3.5 rounded-xl border border-amber-300 bg-amber-50/80 hover:bg-amber-100/80 text-left flex items-center justify-between transition disabled:opacity-45 disabled:pointer-events-none">
+          <div>
+            <span class="font-bold text-amber-950 text-sm block">Xuất các hồ sơ đang tích chọn</span>
+            <span id="exportSelectedSubtext" class="text-amber-800 mt-0.5 block">0 hồ sơ đang tích chọn</span>
+          </div>
+          <span class="px-2.5 py-1 rounded-lg bg-amber-600 text-white font-semibold">Tải .xlsx</span>
+        </button>
+
         <button type="button" onclick="exportToXLSX('filtered')" class="w-full p-3.5 rounded-xl border border-emerald-300 bg-emerald-50/70 hover:bg-emerald-100/80 text-left flex items-center justify-between transition">
           <div>
             <span class="font-bold text-emerald-900 text-sm block">Xuất theo danh sách đang lọc trên bảng</span>
@@ -893,6 +934,7 @@
       addDoc,
       updateDoc,
       deleteDoc,
+      writeBatch,
       onSnapshot
     } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -962,9 +1004,13 @@
       sortBy: "mhs_desc",
       sortColumn: "mhs",
       sortDirection: "desc",
+      currentPage: 1,
+      pageSize: 100,
+      lastPageRows: [],
       selectedDocIds: new Set(),
       activeDetailId: null,
       deleteTargetDocId: null,
+      keepExistingEditCode: false,
       parsedImportRows: [],
       isCloudMode: false,
       hasSeededOnce: false,
@@ -1312,10 +1358,38 @@
       }
     }
 
+    async function hashEditCode(plainCode) {
+      const raw = String(plainCode || "").trim();
+      if (!raw) return "";
+      if (raw.startsWith("sha256:")) return raw;
+      if (window.crypto && window.crypto.subtle) {
+        const buf = new TextEncoder().encode(raw);
+        const digest = await window.crypto.subtle.digest("SHA-256", buf);
+        const hex = Array.from(new Uint8Array(digest))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+        return "sha256:" + hex;
+      }
+      return raw;
+    }
+
+    async function verifyEditCodeMatch(storedCode, enteredCode) {
+      const expected = String(storedCode || "").trim();
+      const entered = String(enteredCode || "").trim();
+      if (!expected) return true;
+      if (!entered) return false;
+      if (expected.startsWith("sha256:")) {
+        const hashed = await hashEditCode(entered);
+        return hashed === expected;
+      }
+      return entered === expected;
+    }
+
     async function saveNewDocument(payload) {
+      const hashedCode = payload.editCode ? await hashEditCode(payload.editCode) : "";
       const record = {
         ...payload,
-        editCode: payload.editCode ? String(payload.editCode).trim() : "",
+        editCode: hashedCode,
         createdAt: Date.now(),
         updatedAt: Date.now()
       };
@@ -1328,11 +1402,45 @@
       }
     }
 
+    async function batchSaveDocuments(records) {
+      if (!records || records.length === 0) return;
+      const now = Date.now();
+      const prepared = await Promise.all(
+        records.map(async (payload, i) => ({
+          ...payload,
+          editCode: payload.editCode ? await hashEditCode(payload.editCode) : "",
+          createdAt: now + i,
+          updatedAt: now + i
+        }))
+      );
+
+      if (state.isCloudMode && collectionRef && db) {
+        const CHUNK_SIZE = 450;
+        for (let i = 0; i < prepared.length; i += CHUNK_SIZE) {
+          const chunk = prepared.slice(i, i + CHUNK_SIZE);
+          const batch = writeBatch(db);
+          chunk.forEach((rec) => {
+            const newDocRef = doc(collectionRef);
+            batch.set(newDocRef, rec);
+          });
+          await batch.commit();
+        }
+      } else {
+        const memRecords = prepared.map((rec) => ({ id: "mem-" + crypto.randomUUID(), ...rec }));
+        state.documents = [...memRecords, ...state.documents];
+        saveLocalDocuments();
+        renderAll();
+      }
+    }
+
     async function updateExistingDocument(docId, updates) {
       const recordUpdates = {
         ...updates,
         updatedAt: Date.now()
       };
+      if (Object.prototype.hasOwnProperty.call(recordUpdates, "editCode")) {
+        recordUpdates.editCode = recordUpdates.editCode ? await hashEditCode(recordUpdates.editCode) : "";
+      }
       if (state.isCloudMode && collectionRef) {
         await updateDoc(doc(collectionRef, docId), recordUpdates);
       } else {
@@ -1352,9 +1460,47 @@
       }
     }
 
+    async function batchRemoveDocuments(docIds) {
+      if (!docIds || docIds.length === 0) return;
+      if (state.isCloudMode && collectionRef && db) {
+        const CHUNK_SIZE = 450;
+        for (let i = 0; i < docIds.length; i += CHUNK_SIZE) {
+          const chunk = docIds.slice(i, i + CHUNK_SIZE);
+          const batch = writeBatch(db);
+          chunk.forEach((id) => {
+            batch.delete(doc(collectionRef, id));
+          });
+          await batch.commit();
+        }
+      } else {
+        const idSet = new Set(docIds);
+        state.documents = state.documents.filter((d) => !idSet.has(d.id));
+        saveLocalDocuments();
+        renderAll();
+      }
+    }
+
     // -------------------------------------------------------------------------
     // 5. LỌC & SẮP XẾP DỮ LIỆU
     // -------------------------------------------------------------------------
+    const searchHaystackCache = new WeakMap();
+    function getDocSearchHaystack(item) {
+      let cached = searchHaystackCache.get(item);
+      if (cached !== undefined) return cached;
+      cached = [
+        item.mhs,
+        item.title,
+        item.supplier,
+        item.recipient,
+        item.sender,
+        item.note
+      ]
+        .map((field) => removeVietnameseTones(field || ""))
+        .join(" ");
+      searchHaystackCache.set(item, cached);
+      return cached;
+    }
+
     function getProcessedDocuments() {
       const qNorm = removeVietnameseTones(state.searchQuery);
 
@@ -1378,18 +1524,7 @@
         }
 
         if (qNorm) {
-          const haystack = [
-            item.mhs,
-            item.title,
-            item.supplier,
-            item.recipient,
-            item.sender,
-            item.note
-          ]
-            .map((field) => removeVietnameseTones(field || ""))
-            .join(" ");
-
-          if (!haystack.includes(qNorm)) return false;
+          if (!getDocSearchHaystack(item).includes(qNorm)) return false;
         }
 
         return true;
@@ -1567,13 +1702,23 @@
     };
 
     function renderLedgerTable() {
-      const rows = getProcessedDocuments();
+      const allRows = getProcessedDocuments();
       const thead = document.getElementById("ledgerTableHead");
       const quickAddTbody = document.getElementById("quickAddTbody");
       const tbody = document.getElementById("ledgerTableBody");
       const emptyBox = document.getElementById("emptyStateBox");
 
-      document.getElementById("tableCountSummary").textContent = `Hiển thị ${rows.length} / ${state.documents.length} hồ sơ`;
+      const totalFiltered = allRows.length;
+      const pageSizeNum = state.pageSize === "all" ? Math.max(totalFiltered, 1) : (parseInt(state.pageSize, 10) || 100);
+      const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSizeNum));
+      if (state.currentPage > totalPages) state.currentPage = totalPages;
+      if (state.currentPage < 1) state.currentPage = 1;
+
+      const startIdx = state.pageSize === "all" ? 0 : (state.currentPage - 1) * pageSizeNum;
+      const rows = state.pageSize === "all" ? allRows : allRows.slice(startIdx, startIdx + pageSizeNum);
+      state.lastPageRows = rows;
+
+      document.getElementById("tableCountSummary").textContent = `Hiển thị ${totalFiltered} / ${state.documents.length} hồ sơ`;
 
       const cellPad = state.rowDensity === "compact" ? "py-1 px-1.5 text-xs" : "py-2 px-2 text-[12.5px]";
       const thPad = "py-1.5 px-1.5 text-[10px] font-bold uppercase tracking-tight border border-emerald-700/60";
@@ -1686,6 +1831,9 @@
 
       if (rows.length === 0) {
         tbody.innerHTML = "";
+        state.lastPageRows = [];
+        renderPaginationControls(0, 0, 0, 1);
+        syncSelectionUI();
         emptyBox.classList.remove("hidden");
         const emptyTitle = document.getElementById("emptyStateTitle");
         const emptyDesc = document.getElementById("emptyStateDesc");
@@ -1710,20 +1858,18 @@
           const isReturned = st.category === "returned";
           const isOverdue = st.category === "overdue";
           const isSelected = state.selectedDocIds.has(item.id);
-          const zebraBg = isSelected
-            ? "bg-amber-100/70 hover:bg-amber-100/90"
-            : isOverdue
-              ? "bg-rose-50/45 hover:bg-rose-50/80"
-              : idx % 2 === 1
-                ? "bg-slate-50/60 hover:bg-emerald-50/50"
-                : "bg-white hover:bg-emerald-50/50";
-          const stickyBg = isSelected
-            ? "bg-amber-100"
-            : isOverdue
-              ? "bg-rose-50"
-              : idx % 2 === 1
-                ? "bg-slate-50"
-                : "bg-white";
+          const baseZebraBg = isOverdue
+            ? "bg-rose-50/45 hover:bg-rose-50/80"
+            : idx % 2 === 1
+              ? "bg-slate-50/60 hover:bg-emerald-50/50"
+              : "bg-white hover:bg-emerald-50/50";
+          const baseStickyBg = isOverdue
+            ? "bg-rose-50"
+            : idx % 2 === 1
+              ? "bg-slate-50"
+              : "bg-white";
+          const zebraBg = isSelected ? "bg-amber-100/70 hover:bg-amber-100/90" : baseZebraBg;
+          const stickyBg = isSelected ? "bg-amber-100" : baseStickyBg;
           const selectStyle = getRecipientBadgeStyle(item.recipient);
 
           const inlineRecipientSelect = `
@@ -1752,7 +1898,7 @@
             : `<span class="text-[10px] text-emerald-700 font-semibold px-1">Đã trả</span>`;
 
           return `
-            <tr onclick="openDetailModal('${item.id}')" ondblclick="requestEditDocumentWithAuth('${item.id}')" title="Bấm 1 lần: Xem chi tiết. Nhấp đúp: Sửa nhanh hồ sơ." class="cursor-pointer transition ${zebraBg}">
+            <tr data-doc-id="${escapeHTML(item.id)}" data-base-zebra="${baseZebraBg}" data-base-sticky="${baseStickyBg}" onclick="openDetailModal('${item.id}')" ondblclick="requestEditDocumentWithAuth('${item.id}')" title="Bấm 1 lần: Xem chi tiết. Nhấp đúp: Sửa nhanh hồ sơ." class="cursor-pointer transition ${zebraBg}">
               <td class="${cellPad} text-center font-medium text-slate-500 border border-slate-200 tabular-nums td-sticky-stt ${stickyBg}" onclick="event.stopPropagation()">
                 <div class="flex items-center justify-center gap-1">
                   <input
@@ -1762,7 +1908,7 @@
                     ${isSelected ? "checked" : ""}
                     title="Tích chọn hồ sơ này"
                   />
-                  <span class="text-[10.5px] text-slate-500 font-mono font-medium">${idx + 1}</span>
+                  <span class="text-[10.5px] text-slate-500 font-mono font-medium">${startIdx + idx + 1}</span>
                 </div>
               </td>
               <td class="${cellPad} font-mono font-bold text-slate-800 border border-slate-200 whitespace-nowrap td-sticky-mhs ${stickyBg}">
@@ -1802,8 +1948,81 @@
           `;
         })
         .join("");
+      renderPaginationControls(totalFiltered, startIdx, rows.length, totalPages);
       syncSelectionUI();
     }
+
+    function renderPaginationControls(totalFiltered, startIdx, pageCount, totalPages) {
+      const infoEl = document.getElementById("paginationInfoText");
+      const btnContainer = document.getElementById("paginationButtons");
+      const pageSizeSelect = document.getElementById("pageSizeSelect");
+      if (pageSizeSelect) pageSizeSelect.value = String(state.pageSize);
+
+      if (infoEl) {
+        if (totalFiltered === 0) {
+          infoEl.textContent = "Đang xem 0 / 0 hồ sơ";
+        } else {
+          const from = startIdx + 1;
+          const to = startIdx + pageCount;
+          infoEl.textContent = `Đang xem ${from}–${to} / ${totalFiltered} hồ sơ`;
+        }
+      }
+
+      if (!btnContainer) return;
+      if (state.pageSize === "all" || totalPages <= 1) {
+        btnContainer.innerHTML = "";
+        return;
+      }
+
+      const cur = state.currentPage;
+      const btnCls = (disabled) =>
+        `px-2 py-1 rounded-md text-xs font-semibold border transition ${
+          disabled
+            ? "bg-slate-100 text-slate-300 border-slate-200 pointer-events-none"
+            : "bg-white text-slate-700 border-slate-300 hover:bg-emerald-50 hover:border-emerald-400 cursor-pointer"
+        }`;
+
+      const pageNums = [];
+      const delta = 1;
+      for (let p = 1; p <= totalPages; p++) {
+        if (p === 1 || p === totalPages || (p >= cur - delta && p <= cur + delta)) {
+          pageNums.push(p);
+        } else if (pageNums[pageNums.length - 1] !== "...") {
+          pageNums.push("...");
+        }
+      }
+
+      btnContainer.innerHTML = `
+        <button type="button" onclick="goToPage(1)" class="${btnCls(cur === 1)}" ${cur === 1 ? "disabled" : ""} title="Trang đầu">«</button>
+        <button type="button" onclick="goToPage(${cur - 1})" class="${btnCls(cur === 1)}" ${cur === 1 ? "disabled" : ""} title="Trang trước">‹ Trước</button>
+        ${pageNums
+          .map((p) =>
+            p === "..."
+              ? `<span class="px-1.5 text-slate-400">…</span>`
+              : `<button type="button" onclick="goToPage(${p})" class="px-2.5 py-1 rounded-md text-xs font-bold border transition ${
+                  p === cur
+                    ? "bg-emerald-700 text-white border-emerald-700 shadow-2xs"
+                    : "bg-white text-slate-700 border-slate-300 hover:bg-emerald-50 cursor-pointer"
+                }">${p}</button>`
+          )
+          .join("")}
+        <button type="button" onclick="goToPage(${cur + 1})" class="${btnCls(cur === totalPages)}" ${cur === totalPages ? "disabled" : ""} title="Trang sau">Sau ›</button>
+        <button type="button" onclick="goToPage(${totalPages})" class="${btnCls(cur === totalPages)}" ${cur === totalPages ? "disabled" : ""} title="Trang cuối">»</button>
+      `;
+    }
+
+    window.goToPage = function (page) {
+      state.currentPage = page;
+      renderLedgerTable();
+      const scrollBox = document.querySelector("#ledgerTable")?.parentElement;
+      if (scrollBox) scrollBox.scrollTop = 0;
+    };
+
+    window.changePageSize = function (sizeVal) {
+      state.pageSize = sizeVal === "all" ? "all" : (parseInt(sizeVal, 10) || 100);
+      state.currentPage = 1;
+      renderLedgerTable();
+    };
 
     function hasActiveFilters() {
       return (
@@ -1839,17 +2058,25 @@
     // -------------------------------------------------------------------------
     window.setStatusFilter = function (status) {
       state.statusFilter = status;
+      state.currentPage = 1;
       renderAll();
     };
 
+    let searchDebounceTimer = null;
     window.handleSearchInput = function (value) {
       state.searchQuery = value;
       document.getElementById("clearSearchBtn").classList.toggle("hidden", !value.trim());
-      renderLedgerTable();
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {
+        state.currentPage = 1;
+        renderLedgerTable();
+      }, 180);
     };
 
     window.clearSearch = function () {
+      clearTimeout(searchDebounceTimer);
       state.searchQuery = "";
+      state.currentPage = 1;
       document.getElementById("searchInput").value = "";
       document.getElementById("clearSearchBtn").classList.add("hidden");
       renderLedgerTable();
@@ -1862,11 +2089,13 @@
 
     window.setStageFilter = function (val) {
       state.stageFilter = val;
+      state.currentPage = 1;
       renderAll();
     };
 
     window.setSenderFilter = function (val) {
       state.senderFilter = val;
+      state.currentPage = 1;
       renderAll();
     };
 
@@ -2116,9 +2345,9 @@
       }
 
       const entered = (document.getElementById("passcodeModalInput").value || "").trim();
-      const expected = String(item.editCode || "").trim();
+      const isMatch = await verifyEditCodeMatch(item.editCode, entered);
 
-      if (entered === expected) {
+      if (isMatch) {
         // Mã chính xác! Lưu mở khóa phiên này
         state.unlockedDocIds.add(docId);
         closePasscodeModal();
@@ -2160,7 +2389,20 @@
     // -------------------------------------------------------------------------
     window.generateRandomCodeForFormField = function () {
       const code = generateRandom4Digits();
-      document.getElementById("fieldEditCode").value = code;
+      state.keepExistingEditCode = false;
+      const input = document.getElementById("fieldEditCode");
+      input.value = code;
+      input.placeholder = "Để trống nếu không khóa";
+      document.getElementById("btnClearEditCodeInForm")?.classList.remove("hidden");
+    };
+
+    window.clearEditCodeInForm = function () {
+      state.keepExistingEditCode = false;
+      const input = document.getElementById("fieldEditCode");
+      input.value = "";
+      input.placeholder = "Để trống nếu không khóa";
+      document.getElementById("btnClearEditCodeInForm")?.classList.add("hidden");
+      showToast("Đã gỡ mã bảo mật trên biểu mẫu. Bấm Lưu để áp dụng.", "info");
     };
 
     function populateRecipientSelectInForm(selectedVal = "") {
@@ -2210,7 +2452,20 @@
         document.getElementById("fieldDueDate").value = item.dueDate || "";
         document.getElementById("fieldReturnDate").value = item.returnDate || "";
         document.getElementById("fieldNote").value = item.note || "";
-        document.getElementById("fieldEditCode").value = item.editCode || "";
+        const editCodeInput = document.getElementById("fieldEditCode");
+        const clearBtn = document.getElementById("btnClearEditCodeInForm");
+        const rawCode = String(item.editCode || "").trim();
+        if (rawCode.startsWith("sha256:")) {
+          state.keepExistingEditCode = true;
+          editCodeInput.value = "";
+          editCodeInput.placeholder = "Đã khóa (nhập mã mới để đổi)";
+          clearBtn?.classList.remove("hidden");
+        } else {
+          state.keepExistingEditCode = false;
+          editCodeInput.value = rawCode;
+          editCodeInput.placeholder = "Để trống nếu không khóa";
+          clearBtn?.classList.toggle("hidden", !rawCode);
+        }
 
         // Nơi nhận
         if (!state.recipients.includes(item.recipient) && item.recipient !== "Đã trả lại") {
@@ -2224,7 +2479,11 @@
         document.getElementById("documentForm").reset();
         document.getElementById("fieldMhs").value = generateNextMHS();
         document.getElementById("fieldSentDate").value = getTodayLocalISO();
-        document.getElementById("fieldEditCode").value = "";
+        state.keepExistingEditCode = false;
+        const editCodeInput = document.getElementById("fieldEditCode");
+        editCodeInput.value = "";
+        editCodeInput.placeholder = "Để trống nếu không khóa";
+        document.getElementById("btnClearEditCodeInForm")?.classList.add("hidden");
         populateRecipientSelectInForm(state.recipients[0] || "GM");
       }
 
@@ -2248,7 +2507,11 @@
       const dueDate = document.getElementById("fieldDueDate").value || "";
       let returnDate = document.getElementById("fieldReturnDate").value || "";
       const note = document.getElementById("fieldNote").value.trim();
-      const editCode = document.getElementById("fieldEditCode").value.trim();
+      let editCode = document.getElementById("fieldEditCode").value.trim();
+      if (!editCode && editDocId && state.keepExistingEditCode) {
+        const existingDoc = state.documents.find((d) => d.id === editDocId);
+        editCode = existingDoc?.editCode || "";
+      }
 
       // Xử lý nơi nhận mới tùy chỉnh
       if (recipient === "__NEW_CUSTOM__") {
@@ -2575,34 +2838,71 @@
     // -------------------------------------------------------------------------
     // CHỌN HÀNG LOẠT & THAO TÁC XÓA HÀNG LOẠT
     // -------------------------------------------------------------------------
+    function applyRowSelectionVisual(tr, isSelected) {
+      if (!tr) return;
+      const baseZebra = tr.dataset.baseZebra || "";
+      const baseSticky = tr.dataset.baseSticky || "";
+      const selectedZebra = "bg-amber-100/70 hover:bg-amber-100/90";
+      const removeList = (isSelected ? baseZebra : selectedZebra).split(/\s+/).filter(Boolean);
+      const addList = (isSelected ? selectedZebra : baseZebra).split(/\s+/).filter(Boolean);
+      if (removeList.length) tr.classList.remove(...removeList);
+      if (addList.length) tr.classList.add(...addList);
+
+      const sttTd = tr.querySelector(".td-sticky-stt");
+      const mhsTd = tr.querySelector(".td-sticky-mhs");
+      [sttTd, mhsTd].forEach((td) => {
+        if (!td) return;
+        if (isSelected) {
+          if (baseSticky) td.classList.remove(baseSticky);
+          td.classList.add("bg-amber-100");
+        } else {
+          td.classList.remove("bg-amber-100");
+          if (baseSticky) td.classList.add(baseSticky);
+        }
+      });
+    }
+
     window.toggleSelectRow = function (docId, isChecked) {
       if (isChecked) {
         state.selectedDocIds.add(docId);
       } else {
         state.selectedDocIds.delete(docId);
       }
+      const tr = document.querySelector(`#ledgerTableBody tr[data-doc-id="${CSS.escape(docId)}"]`);
+      applyRowSelectionVisual(tr, isChecked);
       syncSelectionUI();
     };
 
     window.toggleSelectAllRows = function (isChecked) {
-      const rows = getProcessedDocuments();
-      if (isChecked) {
-        rows.forEach((r) => state.selectedDocIds.add(r.id));
-      } else {
-        rows.forEach((r) => state.selectedDocIds.delete(r.id));
-      }
-      renderLedgerTable();
+      const pageRows = state.lastPageRows || [];
+      pageRows.forEach((r) => {
+        if (isChecked) state.selectedDocIds.add(r.id);
+        else state.selectedDocIds.delete(r.id);
+      });
+      document.querySelectorAll("#ledgerTableBody tr[data-doc-id]").forEach((tr) => {
+        const id = tr.dataset.docId;
+        const cb = tr.querySelector(".doc-checkbox");
+        const checked = state.selectedDocIds.has(id);
+        if (cb) cb.checked = checked;
+        applyRowSelectionVisual(tr, checked);
+      });
+      syncSelectionUI();
     };
 
     window.clearAllSelections = function () {
       state.selectedDocIds.clear();
-      renderLedgerTable();
+      document.querySelectorAll("#ledgerTableBody tr[data-doc-id]").forEach((tr) => {
+        const cb = tr.querySelector(".doc-checkbox");
+        if (cb) cb.checked = false;
+        applyRowSelectionVisual(tr, false);
+      });
+      syncSelectionUI();
     };
 
     function syncSelectionUI() {
       const selectedCount = state.selectedDocIds.size;
-      const rows = getProcessedDocuments();
-      const visibleCount = rows.length;
+      const pageRows = state.lastPageRows || [];
+      const visibleCount = pageRows.length;
 
       // Cập nhật floating toolbar
       const floatBar = document.getElementById("batchActionBar");
@@ -2626,15 +2926,15 @@
         }
       }
 
-      // Cập nhật trạng thái selectAllCheckbox (checked / indeterminate)
+      // Cập nhật trạng thái selectAllCheckbox (checked / indeterminate) trên trang hiện tại
       const selectAllEl = document.getElementById("selectAllCheckbox");
       if (selectAllEl) {
         if (visibleCount === 0 || selectedCount === 0) {
           selectAllEl.checked = false;
           selectAllEl.indeterminate = false;
         } else {
-          const allVisibleSelected = rows.every((r) => state.selectedDocIds.has(r.id));
-          const someVisibleSelected = rows.some((r) => state.selectedDocIds.has(r.id));
+          const allVisibleSelected = pageRows.every((r) => state.selectedDocIds.has(r.id));
+          const someVisibleSelected = pageRows.some((r) => state.selectedDocIds.has(r.id));
           selectAllEl.checked = allVisibleSelected;
           selectAllEl.indeterminate = !allVisibleSelected && someVisibleSelected;
         }
@@ -2708,8 +3008,16 @@
 
       if (lockedDocs.length > 0) {
         const entered = (document.getElementById("batchDeletePasscodeInput")?.value || "").trim();
-        const invalid = lockedDocs.find((d) => String(d.editCode || "").trim() !== entered);
-        if (!entered || invalid) {
+        let allMatched = Boolean(entered);
+        if (allMatched) {
+          for (const d of lockedDocs) {
+            if (!(await verifyEditCodeMatch(d.editCode, entered))) {
+              allMatched = false;
+              break;
+            }
+          }
+        }
+        if (!allMatched) {
           const err = document.getElementById("batchDeletePasscodeError");
           if (err) {
             err.textContent = "Mã bảo mật không chính xác hoặc không đủ quyền xóa các hồ sơ có khóa!";
@@ -2727,9 +3035,7 @@
 
       const count = selectedDocs.length;
       try {
-        for (const doc of selectedDocs) {
-          await removeDocumentById(doc.id);
-        }
+        await batchRemoveDocuments(selectedDocs.map((d) => d.id));
         state.selectedDocIds.clear();
         closeBatchDeleteModal();
         showToast(`Đã xóa thành công ${count} hồ sơ được chọn!`, "success");
@@ -2869,6 +3175,15 @@
 
     window.handleExportExcelClick = function () {
       const filtered = getProcessedDocuments();
+      const selectedCount = state.selectedDocIds.size;
+      const btnSelected = document.getElementById("btnExportSelectedOption");
+      const subSelected = document.getElementById("exportSelectedSubtext");
+      if (btnSelected && subSelected) {
+        btnSelected.disabled = selectedCount === 0;
+        subSelected.textContent = selectedCount > 0
+          ? `${selectedCount} hồ sơ đang tích chọn`
+          : "Chưa tích chọn hồ sơ nào trên bảng";
+      }
       document.getElementById("exportFilteredSubtext").textContent = `${filtered.length} hồ sơ đang lọc trên bảng`;
       document.getElementById("exportAllSubtext").textContent = `${state.documents.length} hồ sơ tổng cộng trong sổ`;
       document.getElementById("exportModal").classList.remove("hidden");
@@ -2881,9 +3196,17 @@
     window.exportToXLSX = function (scope = "filtered") {
       if (!ensureSheetJSReady()) return;
 
-      const sourceDocs = scope === "filtered" ? getProcessedDocuments() : state.documents;
+      let sourceDocs = state.documents;
+      if (scope === "selected") {
+        sourceDocs = state.documents.filter((d) => state.selectedDocIds.has(d.id));
+      } else if (scope === "filtered") {
+        sourceDocs = getProcessedDocuments();
+      }
       if (sourceDocs.length === 0) {
-        showToast("Không có dữ liệu để xuất file Excel.", "warning");
+        showToast(
+          scope === "selected" ? "Vui lòng tích chọn ít nhất 1 hồ sơ để xuất Excel." : "Không có dữ liệu để xuất file Excel.",
+          "warning"
+        );
         closeExportModal();
         return;
       }
@@ -3354,10 +3677,8 @@
       try {
         if (mode === "replace") {
           state.recipients = [...DEFAULT_RECIPIENTS];
-          const toDelete = [...state.documents];
-          for (const d of toDelete) {
-            await removeDocumentById(d.id);
-          }
+          const toDeleteIds = state.documents.map((d) => d.id);
+          await batchRemoveDocuments(toDeleteIds);
         }
 
         // Bổ sung các nơi nhận hợp lệ từ file
@@ -3373,9 +3694,7 @@
         });
         saveLocalRecipients();
 
-        for (const rec of records) {
-          await saveNewDocument(rec);
-        }
+        await batchSaveDocuments(records);
 
         const count = records.length;
         closeImportModal();
@@ -3416,6 +3735,14 @@
       <span class="text-xs font-semibold">hồ sơ đã chọn</span>
     </div>
     <div class="h-4 w-px bg-slate-700"></div>
+    <button
+      type="button"
+      onclick="exportToXLSX('selected')"
+      class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+      title="Xuất Excel các hồ sơ đang tích chọn"
+    >
+      <span>📥 Xuất Excel</span>
+    </button>
     <button
       type="button"
       onclick="promptBatchDelete()"
