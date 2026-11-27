@@ -537,8 +537,19 @@
             <input type="date" id="fieldReturnDate" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600" />
           </div>
 
+          <div>
+            <label for="fieldStatus" class="block text-xs font-semibold text-slate-700 mb-1">9. Trạng thái hồ sơ</label>
+            <select id="fieldStatus" onchange="handleStatusSelectChangeInForm(this.value)" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:border-emerald-600">
+              <option value="">Tự động (theo ngày hạn / ngày trả)</option>
+              <option value="in_progress">Đang trình ký</option>
+              <option value="sent">Đã gửi</option>
+              <option value="signed">Đã ký</option>
+              <option value="returned">Đã trả lại</option>
+            </select>
+          </div>
+
           <div class="sm:col-span-2">
-            <label for="fieldNote" class="block text-xs font-semibold text-slate-700 mb-1">9. Lưu ý</label>
+            <label for="fieldNote" class="block text-xs font-semibold text-slate-700 mb-1">10. Lưu ý</label>
             <textarea id="fieldNote" rows="2" placeholder="Ghi chú thêm về chứng từ..." class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600"></textarea>
           </div>
         </div>
@@ -642,6 +653,11 @@
           </div>
 
           <div id="detailStageButtons" class="grid grid-cols-2 sm:grid-cols-4 gap-1.5"></div>
+
+          <div class="pt-2 border-t border-emerald-200/70 flex flex-wrap items-center gap-1.5">
+            <span class="text-[11px] font-bold text-emerald-900 mr-1">Trạng thái:</span>
+            <div id="detailStatusButtons" class="flex flex-wrap items-center gap-1.5"></div>
+          </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <input type="text" id="handoffActorInput" placeholder="Người chuyển (VD: C. Khánh)" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600" />
@@ -1131,8 +1147,15 @@
       return Math.round(diffTime / (1000 * 60 * 60 * 24));
     }
 
+    const STATUS_LABELS = {
+      in_progress: "Đang trình ký",
+      sent: "Đã gửi",
+      signed: "Đã ký",
+      returned: "Đã trả lại"
+    };
+
     function evaluateDocumentStatus(docItem) {
-      if (docItem.recipient === "Đã trả lại" || docItem.returnDate) {
+      if (docItem.manualStatus === "returned" || docItem.recipient === "Đã trả lại" || docItem.returnDate) {
         return {
           category: "returned",
           label: "Đã trả lại",
@@ -1140,7 +1163,15 @@
         };
       }
 
-      if (docItem.recipient === "Đã gửi") {
+      if (docItem.manualStatus === "signed") {
+        return {
+          category: "signed",
+          label: "Đã ký",
+          badgeClass: "bg-teal-50 text-teal-800 border-teal-300 font-semibold"
+        };
+      }
+
+      if (docItem.manualStatus === "sent" || docItem.recipient === "Đã gửi") {
         return {
           category: "sent",
           label: "Đã gửi",
@@ -1520,7 +1551,8 @@
         if (state.statusFilter !== "all") {
           if (state.statusFilter === "returned" && st.category !== "returned") return false;
           if (state.statusFilter === "sent" && st.category !== "sent") return false;
-          if (state.statusFilter === "in_progress" && (st.category === "returned" || st.category === "sent")) return false;
+          if (state.statusFilter === "signed" && st.category !== "signed") return false;
+          if (state.statusFilter === "in_progress" && ["returned", "sent", "signed"].includes(st.category)) return false;
           if (state.statusFilter === "overdue" && st.category !== "overdue") return false;
           if (state.statusFilter === "due_soon" && st.category !== "due_soon") return false;
           if (state.statusFilter === "urgent" && !["overdue", "due_soon"].includes(st.category)) return false;
@@ -1563,7 +1595,7 @@
         }
 
         if (col === "status") {
-          const order = { overdue: 0, due_soon: 1, in_progress: 2, sent: 3, returned: 4 };
+          const order = { overdue: 0, due_soon: 1, in_progress: 2, sent: 3, signed: 4, returned: 5 };
           const stA = evaluateDocumentStatus(a);
           const stB = evaluateDocumentStatus(b);
           const rankA = order[stA.category] !== undefined ? order[stA.category] : 9;
@@ -1598,6 +1630,7 @@
       let total = 0;
       let inProgress = 0;
       let sent = 0;
+      let signed = 0;
       let overdue = 0;
       let dueSoon = 0;
       let returned = 0;
@@ -1607,6 +1640,7 @@
         const st = evaluateDocumentStatus(item);
         if (st.category === "returned") returned++;
         else if (st.category === "sent") sent++;
+        else if (st.category === "signed") signed++;
         else if (st.category === "overdue") { inProgress++; overdue++; }
         else if (st.category === "due_soon") { inProgress++; dueSoon++; }
         else inProgress++;
@@ -1638,6 +1672,7 @@
         { id: "all", label: "Tất cả", count: total },
         { id: "in_progress", label: "Đang trình ký", count: inProgress },
         { id: "sent", label: "Đã gửi", count: sent },
+        { id: "signed", label: "Đã ký", count: signed },
         { id: "urgent", label: "Sắp / Quá hạn", count: urgentCount, highlight: overdue > 0 },
         { id: "returned", label: "Đã trả lại", count: returned }
       ];
@@ -1822,7 +1857,15 @@
           <td class="py-1 px-1">
             <input type="date" id="qaDueDate" value="" title="Ngày hạn (không bắt buộc)" class="w-full max-w-[108px] px-1 py-0.5 text-[11px] bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" />
           </td>
-          <td class="py-1 px-1 text-center text-[10px] text-slate-400 font-medium">Tự động</td>
+          <td class="py-1 px-1 text-center">
+            <select id="qaStatus" class="w-full max-w-[96px] px-1 py-0.5 text-[10.5px] font-medium bg-white border border-amber-300 rounded focus:outline-none focus:border-emerald-600" title="Chọn trạng thái ban đầu">
+              <option value="">Tự động</option>
+              <option value="in_progress">Đang trình ký</option>
+              <option value="sent">Đã gửi</option>
+              <option value="signed">Đã ký</option>
+              <option value="returned">Đã trả lại</option>
+            </select>
+          </td>
           <td class="py-1 px-1 text-center whitespace-nowrap">
             <button type="button" onclick="submitQuickAddRow()" class="px-2 py-0.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-semibold shadow-2xs transition">
               + Lưu
@@ -1901,6 +1944,24 @@
             </select>
           `;
 
+          const inlineStatusVal = item.manualStatus || (item.recipient === "Đã trả lại" || item.returnDate ? "returned" : item.recipient === "Đã gửi" ? "sent" : "");
+          const autoStatusLabel = ["overdue", "due_soon"].includes(st.category) ? st.label : "Tự động";
+          const inlineStatusSelect = `
+            <select
+              onclick="event.stopPropagation()"
+              onchange="handleInlineStatusChange('${item.id}', this.value)"
+              aria-label="Đổi trạng thái hồ sơ"
+              title="${escapeHTML(st.label)} (Bấm để đổi trạng thái)"
+              class="max-w-[105px] px-1 py-0.5 rounded text-[10.5px] border cursor-pointer focus:outline-none focus:ring-1 focus:ring-emerald-600/30 ${st.badgeClass}"
+            >
+              <option value="" ${inlineStatusVal === "" ? "selected" : ""}>${escapeHTML(autoStatusLabel)}</option>
+              <option value="in_progress" ${inlineStatusVal === "in_progress" ? "selected" : ""}>Đang trình ký</option>
+              <option value="sent" ${inlineStatusVal === "sent" ? "selected" : ""}>Đã gửi</option>
+              <option value="signed" ${inlineStatusVal === "signed" ? "selected" : ""}>Đã ký</option>
+              <option value="returned" ${inlineStatusVal === "returned" ? "selected" : ""}>Đã trả lại</option>
+            </select>
+          `;
+
           const quickReturnBtn = !isReturned
             ? `<button
                 type="button"
@@ -1945,7 +2006,7 @@
               <td class="${cellPad} border border-slate-200 whitespace-nowrap tabular-nums text-center ${item.returnDate ? "text-emerald-700 font-semibold" : "text-slate-400"}">${formatDateVN(item.returnDate) || "—"}</td>
               <td class="${cellPad} border border-slate-200 whitespace-nowrap tabular-nums text-center ${isOverdue ? "text-rose-600 font-bold" : "text-slate-700"}">${formatDateVN(item.dueDate) || "—"}</td>
               <td class="${cellPad} border border-slate-200 whitespace-nowrap text-center">
-                <span class="inline-block px-1.5 py-0.5 rounded text-[10.5px] border ${st.badgeClass}">${escapeHTML(st.label)}</span>
+                ${inlineStatusSelect}
               </td>
               <td class="${cellPad} border border-slate-200 text-center whitespace-nowrap" onclick="event.stopPropagation()">
                 <div class="inline-flex items-center justify-center gap-1">
@@ -2169,6 +2230,7 @@
       const sentDate = document.getElementById("qaSentDate")?.value || getTodayLocalISO();
       const sender = (document.getElementById("qaSender")?.value || "").trim() || "Chưa rõ";
       const dueDate = document.getElementById("qaDueDate")?.value || "";
+      const manualStatus = document.getElementById("qaStatus")?.value || "";
       const editCode = "";
       const note = (document.getElementById("qaNote")?.value || "").trim();
 
@@ -2178,7 +2240,7 @@
         return;
       }
 
-      const returnDate = recipient === "Đã trả lại" ? getTodayLocalISO() : "";
+      const returnDate = (recipient === "Đã trả lại" || manualStatus === "returned") ? getTodayLocalISO() : "";
 
       try {
         await saveNewDocument({
@@ -2190,6 +2252,7 @@
           sender,
           returnDate,
           dueDate,
+          manualStatus,
           note,
           editCode,
           history: [
@@ -2234,8 +2297,12 @@
 
       if (newRecipient === "Đã trả lại") {
         updates.returnDate = todayISO;
-      } else if (newRecipient === "Đã gửi" && docItem.returnDate) {
-        updates.returnDate = "";
+        updates.manualStatus = "returned";
+      } else if (newRecipient === "Đã gửi") {
+        updates.manualStatus = "sent";
+        if (docItem.returnDate) updates.returnDate = "";
+      } else if (docItem.manualStatus === "returned" || docItem.manualStatus === "sent") {
+        updates.manualStatus = "";
       }
 
       const historyEntry = {
@@ -2272,6 +2339,53 @@
       }
 
       await executeInlineRecipientChange(docId, "Đã trả lại");
+    };
+
+    window.handleInlineStatusChange = async function (docId, newStatus) {
+      const docItem = state.documents.find((d) => d.id === docId);
+      if (!docItem) return;
+
+      const code = String(docItem.editCode || "").trim();
+      if (code && !state.unlockedDocIds.has(docId)) {
+        openPasscodeModal(docId, "inlineStatus", { newStatus });
+        renderLedgerTable();
+        return;
+      }
+
+      await executeInlineStatusChange(docId, newStatus);
+    };
+
+    window.executeInlineStatusChange = async function (docId, newStatus) {
+      const docItem = state.documents.find((d) => d.id === docId);
+      if (!docItem) return;
+
+      const oldLabel = evaluateDocumentStatus(docItem).label;
+      const updates = { manualStatus: newStatus || "" };
+
+      if (newStatus === "returned") {
+        updates.returnDate = docItem.returnDate || getTodayLocalISO();
+      } else if (newStatus === "in_progress" || newStatus === "sent" || newStatus === "signed") {
+        if (docItem.returnDate) updates.returnDate = "";
+        if (docItem.recipient === "Đã trả lại") updates.recipient = state.recipients[0] || "GM";
+      }
+
+      const newLabel = newStatus ? (STATUS_LABELS[newStatus] || newStatus) : "Tự động";
+      const historyEntry = {
+        time: getCurrentTimestampVN(),
+        actor: "Người dùng",
+        from: oldLabel,
+        to: newLabel,
+        note: `Cập nhật trạng thái: ${newLabel}`
+      };
+      updates.history = [historyEntry, ...(docItem.history || [])];
+
+      try {
+        await updateExistingDocument(docId, updates);
+        showToast(`Hồ sơ ${docItem.mhs}: trạng thái → ${newLabel}`, "info");
+      } catch (err) {
+        console.error(err);
+        showToast("Không thể cập nhật trạng thái.", "error");
+      }
     };
 
     // -------------------------------------------------------------------------
@@ -2343,10 +2457,14 @@
         promptDeleteDocument(docId);
       } else if (action === "inlineRecipient") {
         await executeInlineRecipientChange(docId, extra?.newRecipient);
+      } else if (action === "inlineStatus") {
+        await executeInlineStatusChange(docId, extra?.newStatus);
       } else if (action === "markReturned") {
         await executeInlineRecipientChange(docId, "Đã trả lại");
       } else if (action === "handoffDetail") {
         await executeHandoffFromDetail(extra?.targetStage, extra?.actor, extra?.note);
+      } else if (action === "statusDetail") {
+        await executeStatusFromDetail(extra?.statusKey);
       } else if (action === "editSender") {
         promptEditSender(docId);
       } else if (action === "editSenderDetail") {
@@ -2447,8 +2565,22 @@
       }
 
       const returnDateField = document.getElementById("fieldReturnDate");
-      if (val === "Đã trả lại" && !returnDateField.value) {
-        returnDateField.value = getTodayLocalISO();
+      const statusField = document.getElementById("fieldStatus");
+      if (val === "Đã trả lại") {
+        if (!returnDateField.value) returnDateField.value = getTodayLocalISO();
+        if (statusField) statusField.value = "returned";
+      } else if (val === "Đã gửi") {
+        if (statusField) statusField.value = "sent";
+        returnDateField.value = "";
+      }
+    };
+
+    window.handleStatusSelectChangeInForm = function (val) {
+      const returnDateField = document.getElementById("fieldReturnDate");
+      if (val === "returned") {
+        if (!returnDateField.value) returnDateField.value = getTodayLocalISO();
+      } else if (val === "in_progress" || val === "sent" || val === "signed") {
+        returnDateField.value = "";
       }
     };
 
@@ -2473,6 +2605,9 @@
         document.getElementById("fieldSentDate").value = item.sentDate || getTodayLocalISO();
         document.getElementById("fieldDueDate").value = item.dueDate || "";
         document.getElementById("fieldReturnDate").value = item.returnDate || "";
+        document.getElementById("fieldStatus").value =
+          item.manualStatus ||
+          (item.recipient === "Đã trả lại" || item.returnDate ? "returned" : item.recipient === "Đã gửi" ? "sent" : "");
         document.getElementById("fieldNote").value = item.note || "";
         const editCodeInput = document.getElementById("fieldEditCode");
         const clearBtn = document.getElementById("btnClearEditCodeInForm");
@@ -2501,6 +2636,7 @@
         document.getElementById("documentForm").reset();
         document.getElementById("fieldMhs").value = generateNextMHS();
         document.getElementById("fieldSentDate").value = getTodayLocalISO();
+        document.getElementById("fieldStatus").value = "";
         state.keepExistingEditCode = false;
         const editCodeInput = document.getElementById("fieldEditCode");
         editCodeInput.value = "";
@@ -2528,6 +2664,7 @@
       const sender = document.getElementById("fieldSender").value.trim() || "Chưa rõ";
       const dueDate = document.getElementById("fieldDueDate").value || "";
       let returnDate = document.getElementById("fieldReturnDate").value || "";
+      const manualStatus = document.getElementById("fieldStatus").value || "";
       const note = document.getElementById("fieldNote").value.trim();
       let editCode = document.getElementById("fieldEditCode").value.trim();
       if (!editCode && editDocId && state.keepExistingEditCode) {
@@ -2550,8 +2687,10 @@
         }
       }
 
-      if (recipient === "Đã trả lại" && !returnDate) {
+      if ((recipient === "Đã trả lại" || manualStatus === "returned") && !returnDate) {
         returnDate = getTodayLocalISO();
+      } else if (manualStatus === "in_progress" || manualStatus === "sent" || manualStatus === "signed") {
+        returnDate = "";
       }
 
       const payload = {
@@ -2563,6 +2702,7 @@
         sender,
         dueDate,
         returnDate,
+        manualStatus,
         note,
         editCode
       };
@@ -2579,6 +2719,20 @@
                 from: oldDoc.recipient,
                 to: recipient,
                 note: `Chỉnh sửa thông tin hồ sơ (Chuyển sang ${recipient})`
+              },
+              ...history
+            ];
+          }
+          if (oldDoc && (oldDoc.manualStatus || "") !== manualStatus) {
+            const oldStLabel = evaluateDocumentStatus(oldDoc).label;
+            const newStLabel = manualStatus ? (STATUS_LABELS[manualStatus] || manualStatus) : "Tự động";
+            history = [
+              {
+                time: getCurrentTimestampVN(),
+                actor: sender,
+                from: oldStLabel,
+                to: newStLabel,
+                note: `Cập nhật trạng thái: ${newStLabel}`
               },
               ...history
             ];
@@ -2758,6 +2912,27 @@
         })
         .join("");
 
+      // Tạo các nút cập nhật nhanh trạng thái trong Detail Modal
+      const detailStatusContainer = document.getElementById("detailStatusButtons");
+      if (detailStatusContainer) {
+        const statusBtns = [
+          { key: "in_progress", label: "Đang trình ký" },
+          { key: "sent", label: "Đã gửi" },
+          { key: "signed", label: "Đã ký" },
+          { key: "returned", label: "Đã trả lại" }
+        ];
+        const activeCat = item.manualStatus || (st.category === "returned" ? "returned" : st.category === "sent" ? "sent" : st.category === "signed" ? "signed" : "in_progress");
+        detailStatusContainer.innerHTML = statusBtns
+          .map((sb) => {
+            const isAct = activeCat === sb.key;
+            const cls = isAct
+              ? "bg-emerald-700 text-white font-bold ring-1 ring-emerald-700 shadow-2xs"
+              : "bg-white hover:bg-emerald-50 text-slate-700 border border-slate-300";
+            return `<button type="button" onclick="updateStatusFromDetail('${sb.key}')" class="px-2.5 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer ${cls}">${sb.label}${isAct ? " ✓" : ""}</button>`;
+          })
+          .join("");
+      }
+
       // Lịch sử luân chuyển
       const historyList = document.getElementById("detailHistoryList");
       const history = item.history || [];
@@ -2839,6 +3014,59 @@
 
     window.quickCompleteCurrentDetail = async function () {
       await handoffFromDetail("Đã trả lại");
+    };
+
+    window.updateStatusFromDetail = async function (statusKey) {
+      if (!state.activeDetailId) return;
+      const docItem = state.documents.find((d) => d.id === state.activeDetailId);
+      if (!docItem) return;
+
+      const code = String(docItem.editCode || "").trim();
+      if (code && !state.unlockedDocIds.has(docItem.id)) {
+        openPasscodeModal(docItem.id, "statusDetail", { statusKey });
+        return;
+      }
+
+      await executeStatusFromDetail(statusKey);
+    };
+
+    window.executeStatusFromDetail = async function (statusKey) {
+      if (!state.activeDetailId) return;
+      const docItem = state.documents.find((d) => d.id === state.activeDetailId);
+      if (!docItem) return;
+
+      const actor = document.getElementById("handoffActorInput")?.value?.trim() || docItem.sender || "Người dùng";
+      const oldLabel = evaluateDocumentStatus(docItem).label;
+      const newLabel = STATUS_LABELS[statusKey] || statusKey;
+      const updates = { manualStatus: statusKey };
+
+      if (statusKey === "returned") {
+        updates.returnDate = docItem.returnDate || getTodayLocalISO();
+      } else {
+        if (docItem.returnDate) updates.returnDate = "";
+        if (docItem.recipient === "Đã trả lại") updates.recipient = state.recipients[0] || "GM";
+      }
+
+      updates.history = [
+        {
+          time: getCurrentTimestampVN(),
+          actor,
+          from: oldLabel,
+          to: newLabel,
+          note: `Cập nhật trạng thái: ${newLabel}`
+        },
+        ...(docItem.history || [])
+      ];
+
+      try {
+        await updateExistingDocument(docItem.id, updates);
+        const refreshed = state.documents.find((d) => d.id === docItem.id);
+        if (refreshed) populateDetailModal(refreshed);
+        showToast(`Đã cập nhật trạng thái ${docItem.mhs} → ${newLabel}`, "success");
+      } catch (err) {
+        console.error(err);
+        showToast("Không thể cập nhật trạng thái.", "error");
+      }
     };
 
     window.editFromDetailModalWithAuth = function () {
@@ -3586,7 +3814,12 @@
             (h.includes("noi nhan") || h.includes("nguoi nhan") || h.includes("noi/nguoi") || h.includes("noi / nguoi") || h.includes("bo phan") || h.includes("phong ban") || /\bnoi\b/.test(h))
           , [colTitle, colSender]);
 
-          // 9. Lưu ý / Ghi chú
+          // 9. Trạng thái (nếu có)
+          const colStatus = findCol((h) => 
+            h.includes("trang thai") || h === "status"
+          );
+
+          // 10. Lưu ý / Ghi chú
           const colNote = findCol((h) => 
             h.includes("luu y") || h.includes("ghi chu") || h.includes("note")
           );
@@ -3607,7 +3840,14 @@
             const recipientRaw = colRecipient !== -1 ? String(row[colRecipient]).trim() : "";
             const senderRaw = colSender !== -1 ? String(row[colSender]).trim() : "";
             const noteRaw = colNote !== -1 ? String(row[colNote]).trim() : "";
+            const statusRaw = colStatus !== -1 ? removeVietnameseTones(String(row[colStatus]).trim()) : "";
             const codeRaw = colCode !== -1 ? String(row[colCode]).trim() : "";
+
+            let manualStatus = "";
+            if (statusRaw.includes("da tra")) manualStatus = "returned";
+            else if (statusRaw.includes("da ky")) manualStatus = "signed";
+            else if (statusRaw.includes("da gui")) manualStatus = "sent";
+            else if (statusRaw.includes("dang trinh ky")) manualStatus = "in_progress";
 
             const sentDate = parseFlexibleExcelDate(colSentDate !== -1 ? row[colSentDate] : "") || getTodayLocalISO();
             const returnDate = parseFlexibleExcelDate(colReturnDate !== -1 ? row[colReturnDate] : "");
@@ -3636,6 +3876,7 @@
               sender: (senderRaw || "").trim(),
               returnDate,
               dueDate,
+              manualStatus,
               note: noteRaw,
               editCode: (codeRaw || "").trim(),
               history: (mhsRaw && historyByMhs[mhsRaw] && historyByMhs[mhsRaw].length > 0)
