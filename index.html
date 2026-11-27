@@ -959,6 +959,7 @@
       "OR c Thủ":        "bg-indigo-50 text-indigo-800 border-indigo-200",
       "c.Mai":           "bg-pink-50 text-pink-800 border-pink-200",
       "Linh AP":         "bg-sky-50 text-sky-800 border-sky-200",
+      "Đã gửi":          "bg-violet-50 text-violet-800 border-violet-300 font-semibold",
       "Đã trả lại":      "bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold"
     };
 
@@ -977,6 +978,7 @@
 
     function getRecipientBadgeStyle(rec) {
       if (rec === "Đã trả lại") return RECIPIENT_BADGE_STYLES["Đã trả lại"];
+      if (rec === "Đã gửi") return RECIPIENT_BADGE_STYLES["Đã gửi"];
       if (RECIPIENT_BADGE_STYLES[rec]) return RECIPIENT_BADGE_STYLES[rec];
       let hash = 0;
       for (let i = 0; i < rec.length; i++) hash = rec.charCodeAt(i) + ((hash << 5) - hash);
@@ -1135,6 +1137,14 @@
           category: "returned",
           label: "Đã trả lại",
           badgeClass: "bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold"
+        };
+      }
+
+      if (docItem.recipient === "Đã gửi") {
+        return {
+          category: "sent",
+          label: "Đã gửi",
+          badgeClass: "bg-violet-50 text-violet-800 border-violet-300 font-semibold"
         };
       }
 
@@ -1509,7 +1519,8 @@
 
         if (state.statusFilter !== "all") {
           if (state.statusFilter === "returned" && st.category !== "returned") return false;
-          if (state.statusFilter === "in_progress" && st.category === "returned") return false;
+          if (state.statusFilter === "sent" && st.category !== "sent") return false;
+          if (state.statusFilter === "in_progress" && (st.category === "returned" || st.category === "sent")) return false;
           if (state.statusFilter === "overdue" && st.category !== "overdue") return false;
           if (state.statusFilter === "due_soon" && st.category !== "due_soon") return false;
           if (state.statusFilter === "urgent" && !["overdue", "due_soon"].includes(st.category)) return false;
@@ -1552,7 +1563,7 @@
         }
 
         if (col === "status") {
-          const order = { overdue: 0, due_soon: 1, in_progress: 2, returned: 3 };
+          const order = { overdue: 0, due_soon: 1, in_progress: 2, sent: 3, returned: 4 };
           const stA = evaluateDocumentStatus(a);
           const stB = evaluateDocumentStatus(b);
           const rankA = order[stA.category] !== undefined ? order[stA.category] : 9;
@@ -1586,6 +1597,7 @@
     function renderKPIAndQuickPills() {
       let total = 0;
       let inProgress = 0;
+      let sent = 0;
       let overdue = 0;
       let dueSoon = 0;
       let returned = 0;
@@ -1594,6 +1606,7 @@
         total++;
         const st = evaluateDocumentStatus(item);
         if (st.category === "returned") returned++;
+        else if (st.category === "sent") sent++;
         else if (st.category === "overdue") { inProgress++; overdue++; }
         else if (st.category === "due_soon") { inProgress++; dueSoon++; }
         else inProgress++;
@@ -1624,6 +1637,7 @@
       const pills = [
         { id: "all", label: "Tất cả", count: total },
         { id: "in_progress", label: "Đang trình ký", count: inProgress },
+        { id: "sent", label: "Đã gửi", count: sent },
         { id: "urgent", label: "Sắp / Quá hạn", count: urgentCount, highlight: overdue > 0 },
         { id: "returned", label: "Đã trả lại", count: returned }
       ];
@@ -1654,7 +1668,7 @@
     function renderDropdownFilters() {
       const stageSelect = document.getElementById("stageSelect");
       const currentStage = state.stageFilter;
-      const allOptions = [...state.recipients, "Đã trả lại"];
+      const allOptions = [...state.recipients, "Đã gửi", "Đã trả lại"];
 
       stageSelect.innerHTML =
         `<option value="all">Nơi/người nhận: Tất cả (${allOptions.length})</option>` +
@@ -1727,7 +1741,7 @@
 
       const recipientOptionsHTML = state.recipients.map(
         (opt) => `<option value="${escapeHTML(opt)}" ${opt === "GM" ? "selected" : ""}>${escapeHTML(opt)}</option>`
-      ).join("") + `<option value="Đã trả lại">Đã trả lại</option>`;
+      ).join("") + `<option value="Đã gửi">Đã gửi</option><option value="Đã trả lại">Đã trả lại</option>`;
 
       thead.innerHTML = `
         <tr class="bg-emerald-800 text-white shadow-2xs">
@@ -1882,6 +1896,7 @@
               ${state.recipients.map(
                 (opt) => `<option value="${escapeHTML(opt)}" ${opt === item.recipient ? "selected" : ""}>${escapeHTML(opt)}</option>`
               ).join("")}
+              <option value="Đã gửi" ${item.recipient === "Đã gửi" ? "selected" : ""}>Đã gửi</option>
               <option value="Đã trả lại" ${item.recipient === "Đã trả lại" ? "selected" : ""}>Đã trả lại</option>
             </select>
           `;
@@ -2219,6 +2234,8 @@
 
       if (newRecipient === "Đã trả lại") {
         updates.returnDate = todayISO;
+      } else if (newRecipient === "Đã gửi" && docItem.returnDate) {
+        updates.returnDate = "";
       }
 
       const historyEntry = {
@@ -2226,7 +2243,11 @@
         actor: "Người dùng",
         from: oldRecipient,
         to: newRecipient,
-        note: newRecipient === "Đã trả lại" ? "Hoàn tất trả hồ sơ" : `Chuyển sang ${newRecipient}`
+        note: newRecipient === "Đã trả lại"
+          ? "Hoàn tất trả hồ sơ"
+          : newRecipient === "Đã gửi"
+            ? "Đánh dấu đã gửi hồ sơ"
+            : `Chuyển sang ${newRecipient}`
       };
 
       updates.history = [historyEntry, ...(docItem.history || [])];
@@ -2410,6 +2431,7 @@
       const opts = state.recipients.map(
         (r) => `<option value="${escapeHTML(r)}" ${r === selectedVal ? "selected" : ""}>${escapeHTML(r)}</option>`
       );
+      opts.push(`<option value="Đã gửi" ${selectedVal === "Đã gửi" ? "selected" : ""}>Đã gửi</option>`);
       opts.push(`<option value="Đã trả lại" ${selectedVal === "Đã trả lại" ? "selected" : ""}>Đã trả lại</option>`);
       opts.push(`<option value="__NEW_CUSTOM__" ${selectedVal === "__NEW_CUSTOM__" ? "selected" : ""}>+ Nhập nơi nhận khác...</option>`);
       select.innerHTML = opts.join("");
@@ -2468,7 +2490,7 @@
         }
 
         // Nơi nhận
-        if (!state.recipients.includes(item.recipient) && item.recipient !== "Đã trả lại") {
+        if (!state.recipients.includes(item.recipient) && item.recipient !== "Đã trả lại" && item.recipient !== "Đã gửi") {
           state.recipients.push(item.recipient);
           saveLocalRecipients();
         }
@@ -2798,6 +2820,8 @@
 
       if (targetStage === "Đã trả lại") {
         updates.returnDate = getTodayLocalISO();
+      } else if (targetStage === "Đã gửi" && docItem.returnDate) {
+        updates.returnDate = "";
       }
 
       try {
@@ -3125,7 +3149,7 @@
         input.focus();
         return;
       }
-      if (state.recipients.includes(val) || val === "Đã trả lại") {
+      if (state.recipients.includes(val) || val === "Đã trả lại" || val === "Đã gửi") {
         showToast("Nơi nhận này đã tồn tại trong danh sách.", "warning");
         input.focus();
         return;
@@ -3595,6 +3619,7 @@
             if (
               recipient &&
               recipient !== "Đã trả lại" &&
+              recipient !== "Đã gửi" &&
               recipient.length <= 35 &&
               !state.recipients.includes(recipient)
             ) {
@@ -3686,6 +3711,7 @@
           if (
             rec.recipient &&
             rec.recipient !== "Đã trả lại" &&
+            rec.recipient !== "Đã gửi" &&
             rec.recipient.length <= 35 &&
             !state.recipients.includes(rec.recipient)
           ) {
